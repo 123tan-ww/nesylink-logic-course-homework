@@ -207,6 +207,8 @@ TASK5_EVENTS = (
     "world_completed",
 )
 
+# def opposition(facing)
+
 def neighbors(p: Pos) -> List[Tuple[Pos, int]]:
     x, y = p
     return [
@@ -223,6 +225,7 @@ def nearest(start: Pos, candidates: List[Pos]) -> Optional[Pos]:
     sx, sy = start
     return min(candidates, key=lambda p: abs(p[0] - sx) + abs(p[1] - sy))
 
+#lcd
 def nearest_px(start: pxPos , candidates: List[pxPos]) -> Optional[pxPos]:
     """nearest函数的像素级别版本"""
     if not candidates:
@@ -337,6 +340,7 @@ def Str2Enum_facing(facing : str) -> int:
     }
     return relation.get(facing, ACTION_NOOP)
 
+#lcd
 def is_encounter_monster(sym : SymbolicObs,bound = 10) -> int | None :
     """
     判断是否遭遇monster，如果是，返回monster所在方向facing,如果否，返回ACTION_NOOP=0
@@ -373,41 +377,87 @@ def is_encounter_monster(sym : SymbolicObs,bound = 10) -> int | None :
 
 
 class SymbolicPlanner:
+    def __init__(self):
+        #房间 metadata
+        self.rooms = {"explored":[],"unexplored":[]} #管理已发现或潜在的房间数
+        self.room_num = 1 #房间总数,默认出生房room_id=0
+        self.current_room_coord = (0,0) #当前所在房间的坐标
+        self.current_room_id = 0
+        self.room_ID2Coord = {0 : (0,0)} #房间坐标，以出生房间0为原点
+        self.room_Coord2ID = {(0,0) : 0} #当前房间坐标到房间id的映射
+
+        #管理房间exit
+        self.room_exits_info = {} #以房间room_id为索引
+
+
+
+
+    def explore_room(self,room_id, sym : SymbolicObs):
+        """
+        对id为room_id的新房间进行初步探索，更新房间 metadata
+        """
+        self.rooms['explored'].append(room_id)
+        self.rooms['unexplored'].remove(room_id)
+        self.current_room = room_id
+        self.current_room_coord = self.room_ID2Coord[room_id]
+
+        #根据存在的exit，更新self.rooms['unexplored']，将exit里面当作潜在房间
+        #一般四个方向每个方向最多有一个exit
+        dirs = [('up',0),('down',ROOM_H-1),('left',0),('right',ROOM_W)]
+        exits_info = sym.exits_info
+        for dir in dirs:
+            #TODO
+            pass
+
+
+    def activate_switch(self):
+        """激活switch发生的房间转换逻辑"""
+        #TODO
+        pass
+
+
+    def activate_button(self):
+        """激活button发生的逻辑"""
+        #TODO
+        pass
+
     def next_subgoal(self, sym: SymbolicObs, belief: BeliefState) -> Subgoal:
         """
         上层 planner：决定现在应该干什么。
         先实现 Task 1/2/3通用逻辑：
         1. detect_near_monster -> hit_monster
-        1. detect_chest_unopened -> find_chest
-        2. have_key_and_detect_closedExit -> openExit_leave
-        3. detect_normal_opened_exit -> leave
+        2. detect_chest_unopened -> find_chest
+        3. have_key_and_detect_closedExit -> openExit_leave
+        4. detect_normal_opened_exit -> leave
+        5.explored_all_room_and_detect_switch -> activate_switch
         """
-
 
         # 玩家位置识别失败时，不要乱动
         if sym.player is None:
             return Subgoal("wait")
 
-        # 附近有monster
+        #lcd
+        # 1.附近有monster
         monster_facing = is_encounter_monster(sym)
         if monster_facing:
             return Subgoal("kill_monster",facing=monster_facing)
 
-        # 没钥匙：优先去最近宝箱 detect_chest_unopened -> open_chest
-        # if not belief.has_key:
-        #     chest = self.nearest(sym.player, sym.chests)
-        #     if chest is not None:
-        #         return Subgoal("find_chest", chest)
-        #     return Subgoal("explore")
+        #lcd
+        #2.发现未打开chest
         chest = self.nearest(sym.player,sym.chests)
         if chest is not None:
             return Subgoal("find_chest",chest)
 
-        # 有钥匙：去出口
+        # 3.有钥匙：去出口
         if belief.has_key:
             exit_pos = self.nearest(sym.player, sym.exits)
             if exit_pos is not None:
                 return Subgoal("go_exit", exit_pos)
+
+        #lcd
+        #4. 当前未将所有房间探索完毕且发现normal exit -> leave
+        if self.rooms['unexplored']:
+            exit_pos = self.nearest(sym.player, sym.exits)
 
         return Subgoal("explore")
 
@@ -450,11 +500,13 @@ class OptionController:
 
     def actions_to_kill_monster(self,sym: SymbolicObs, facing: int) -> List[int]:
         """
+        #lcd
         朝指定方向进行攻击
         面向monster并攻击
         """
         assert sym.player is not None
         actions = []
+        #lcd : 如果player的朝向已经正确，pass
         if facing != ACTION_NOOP and facing != Str2Enum_facing(sym.facing):
             actions.append(facing)
         # 按 A
@@ -519,6 +571,7 @@ class OptionController:
 
         # 到达相邻格后，如果角色朝向不对，移动一步方向键让角色朝向宝箱
         face_action = action_to_face(target_adj, obj_pos)
+        # lcd : 如果player的朝向已经正确，pass
         if face_action != ACTION_NOOP and face_action != sym.facing:
             actions.append(face_action)
 

@@ -262,11 +262,12 @@ from nesylink.core.constants import (
 def make_exit_patch(direction: str, exit_type: str, opened: bool = False):
     """
     生成和真实渲染一致的出口模板。
-    direction: north/south/west/east
+    #lcd :重命名方向
+    direction: up/down/left/right
     exit_type: normal/locked_key/conditional
     """
 
-    if direction in {"west", "east"}:
+    if direction in {"left", "right"}:
         # 竖向门：1列×2行，大小 16×32
         patch = np.zeros((32, 16, 3), dtype=np.uint8)
         sp.draw_floor(patch, 0, 0)
@@ -294,7 +295,7 @@ class ExitDetector:
     def __init__(self):
         self.templates = []
 
-        for direction in ["north", "south", "west", "east"]:
+        for direction in ["up", "down", "left", "right"]:
             for exit_type in ["normal", "locked_key", "conditional"]:
                 for opened in [False, True]:
                     patch = make_exit_patch(direction, exit_type, opened)
@@ -313,24 +314,24 @@ class ExitDetector:
 
         cands = []
 
-        # north/south 门通常在中间两格附近，但为了泛化，沿边缘滑动 2-tile 窗口
+        # up/down 门通常在中间两格附近，但为了泛化，沿边缘滑动 2-tile 窗口
         for x in range(0, ROOM_W - 1):
-            # north: y=0, 2列×1行
+            # up: y=0, 2列×1行
             patch = frame[0:16, x*16:(x+2)*16, :]
-            cands.append(("north", (x, 0), patch))
+            cands.append(("up", (x, 0), patch))
 
-            # south: y=7
+            # down: y=7
             patch = frame[7*16:8*16, x*16:(x+2)*16, :]
-            cands.append(("south", (x, 7), patch))
+            cands.append(("down", (x, 7), patch))
 
         for y in range(0, ROOM_H - 1):
-            # west: x=0, 1列×2行
+            # left: x=0, 1列×2行
             patch = frame[y*16:(y+2)*16, 0:16, :]
-            cands.append(("west", (0, y), patch))
+            cands.append(("left", (0, y), patch))
 
-            # east: x=9
+            # right: x=9
             patch = frame[y*16:(y+2)*16, 9*16:10*16, :]
-            cands.append(("east", (9, y), patch))
+            cands.append(("right", (9, y), patch))
 
         return cands
 
@@ -377,7 +378,7 @@ from dataclasses import dataclass, field
 from typing import Optional, List, Tuple
 
 Pos = Tuple[int, int]
-pxPos = Tuple[float, float]
+pxPos = Tuple[float, float] #像素位置
 
 @dataclass
 class SymbolicObs:
@@ -394,6 +395,9 @@ class SymbolicObs:
     #lcd : 添加player与monster的具体像素坐标
     player_px : Optional[pxPos] = None
     monsters_px : List[pxPos] = field(default_factory=list)
+
+    #lcd : 添加exits的信息
+    exits_info: dict[str,dict] = field(default_factory=dict) #记录上下左右4个门的类型，状态，是否存在（不存在为None）
 
     
 class PixelPerception:
@@ -427,8 +431,14 @@ class PixelPerception:
         exit_infos = self.exit_detector.detect(frame)
 
         exits = []
+        exits_info = {}
         for e in exit_infos:
             x, y = e["tile"]
+            dir = e['direction']
+            exits_info[dir] = {'type':e['exit_type'],'opened':e['opened']}
+            tiles = exits_info[dir].get(tiles,[])
+            tiles.append((x,y))
+            exits_info[dir]['tiles'] = tiles
             exits.append((x, y))
             grid[y, x] = EXIT
 
@@ -454,9 +464,9 @@ class PixelPerception:
             monsters_px.append(m['position_px'])
             grid[ty, tx] = MONSTER
 
-        return self.grid_to_symbolic(grid, player, facing, monsters,player_px,monsters_px,exits,)
+        return self.grid_to_symbolic(grid, player, facing, monsters,player_px,monsters_px,exits,exits_info)
 
-    def grid_to_symbolic(self, grid, player, facing, monsters,player_px,monsters_px, exits_hint=None):
+    def grid_to_symbolic(self, grid, player, facing, monsters,player_px,monsters_px, exits_hint=None,exits_info : dict[str,dict] = None):
         chests = []
         traps = []
         buttons = []
@@ -501,4 +511,5 @@ class PixelPerception:
             switches=switches,
             player_px=player_px,
             monsters_px=monsters_px,
+            exits_info=exits_info,
         )
