@@ -266,18 +266,22 @@ def make_exit_patch(direction: str, exit_type: str, opened: bool = False):
     direction: up/down/left/right
     exit_type: normal/locked_key/conditional
     """
-
+    #使用mask
     if direction in {"left", "right"}:
         # 竖向门：1列×2行，大小 16×32
         patch = np.zeros((32, 16, 3), dtype=np.uint8)
-        sp.draw_floor(patch, 0, 0)
-        sp.draw_floor(patch, 0, 1)
+        mask = np.zeros((32, 16), dtype=bool)
+        mask[2:30,2:14] = True
+        # sp.draw_floor(patch, 0, 0)
+        # sp.draw_floor(patch, 0, 1)
         tiles = ((0, 0), (0, 1))
     else:
         # 横向门：2列×1行，大小 32×16
         patch = np.zeros((16, 32, 3), dtype=np.uint8)
-        sp.draw_floor(patch, 0, 0)
-        sp.draw_floor(patch, 1, 0)
+        mask = np.zeros((16, 32), dtype=bool)
+        mask[2:14,2:30] = True
+        # sp.draw_floor(patch, 0, 0)
+        # sp.draw_floor(patch, 1, 0)
         tiles = ((0, 0), (1, 0))
 
     if exit_type == "locked_key":
@@ -286,9 +290,9 @@ def make_exit_patch(direction: str, exit_type: str, opened: bool = False):
         color = COLOR_EXIT_CONDITIONAL
     else:
         color = COLOR_EXIT_NORMAL
-
     sp.draw_exit(patch, tiles, exit_type, color, opened=opened)
-    return patch
+
+    return patch,mask
 
 #识别exit
 class ExitDetector:
@@ -298,12 +302,13 @@ class ExitDetector:
         for direction in ["up", "down", "left", "right"]:
             for exit_type in ["normal", "locked_key", "conditional"]:
                 for opened in [False, True]:
-                    patch = make_exit_patch(direction, exit_type, opened)
+                    patch,mask = make_exit_patch(direction, exit_type, opened)
                     self.templates.append({
                         "direction": direction,
                         "exit_type": exit_type,
                         "opened": opened,
                         "patch": patch,
+                        "mask":mask,
                     })
 
     def candidate_regions(self, frame):
@@ -348,7 +353,7 @@ class ExitDetector:
                 if tmpl["patch"].shape != patch.shape:
                     continue
 
-                score = mse(patch, tmpl["patch"])
+                score = masked_mse(patch, tmpl["patch"],tmpl['mask'])
                 if best is None or score < best["score"]:
                     best = {
                         "score": score,
@@ -423,7 +428,7 @@ class PixelPerception:
 
                 # 这里阈值可以设严格一点。
                 # 如果 score 太大，默认 floor，避免误判。
-                if score < 500:
+                if score <= 500:
                     grid[y, x] = label
                 else:
                     grid[y, x] = EMPTY
