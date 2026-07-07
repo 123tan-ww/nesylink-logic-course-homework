@@ -5,8 +5,10 @@ from collections import deque
 from typing import Optional, Deque, Dict, List, Tuple, Set
 import numpy as np
 
+#lcd : 将能够放到vision_exact.py的代码尽量放到通过导入来使用，不再重复定义
 from vision_exact import Pos,pxPos,SymbolicObs,PixelPerception
 
+#lcd : 将这些枚举从其他文件中导入，不重复定义
 # # 动作编号
 from nesylink.core.constants import (
     ACTION_A,
@@ -174,7 +176,7 @@ class Subgoal:
     target: Optional[Pos] = None
     facing : Optional[int] = None
 
-
+#lcd : 任务中可能发生的事件，复制到这里方便写代码
 TASK_MILESTONES: dict[str, tuple[str, ...]] = {
     "mathematical_logic/task_3": (
         "monster_killed",
@@ -722,7 +724,7 @@ class Policy:
 
     def need_replan(self, sym: SymbolicObs, info=None,force_replan=False) -> bool:
         """判断是否需要重新规划"""
-        #强制replan
+        #lcd : 强制replan,发生特定事情需要，比如有monster靠近
         if force_replan:
             return True
 

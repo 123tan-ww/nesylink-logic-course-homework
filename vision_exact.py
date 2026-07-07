@@ -59,7 +59,7 @@ def make_static_templates():
         sp.draw_chest(f, 0, 0, opened=False, loot_kind=loot)
         templates.append((CHEST, f"chest_{loot}", f))
 
-    # chests_opened: 打开了的chest相当于墙,归于WALL类
+    # lcd : chests_opened: 打开了的chest相当于墙,归于WALL类
     for loot in ["key", "gold", "heal", "item", ""]:
         f = blank_tile()
         sp.draw_chest(f, 0, 0, opened=True, loot_kind=loot)
