@@ -2,6 +2,9 @@ import numpy as np
 
 from nesylink.core.rendering import sprites as sp
 from nesylink.core.rendering.sprites import CHEST_OPEN_INNER
+from dataclasses import dataclass, field
+from typing import Optional, List, Tuple,Dict
+
 
 TILE = 16
 TILE_SIZE = 16
@@ -23,6 +26,71 @@ CHEST_OPENED = 12
 #grid : [8 , 10]
 ROOM_W = 10
 ROOM_H = 8
+
+#数据结构类型
+Pos = Tuple[int, int]
+pxPos = Tuple[float, float] #像素位置
+
+#识别exit
+@dataclass
+class ExitInfo:
+    tiles: List[Pos]              # 这个出口占据的两个 tile
+    direction: str                # north/south/west/east
+    exit_type: str = "unknown"    # normal/locked_key/conditional/unknown
+    opened: bool = False
+    score: float = 0.0
+
+    #联通信息
+    dest : int = 0  #目标房间id
+    start : int = 0 #所在房间id
+
+    is_reached : bool = False #是否到达过（指到达到dest）
+
+    @property
+    def representative(self) -> Pos:
+        return self.tiles[0]
+
+
+@dataclass
+class SymbolicObs:
+    grid: np.ndarray                    # shape: (8, 10)
+    player: Optional[Pos] = None
+    facing: str = "up"
+    monsters: List[Pos] = field(default_factory=list)
+    chests: List[Pos] = field(default_factory=list)
+    exits: List[Pos] = field(default_factory=list)
+    traps: List[Pos] = field(default_factory=list)
+    buttons: List[Pos] = field(default_factory=list)
+    switches: List[Pos] = field(default_factory=list)
+
+    #lcd : 添加player与monster的具体像素坐标
+    player_px : Optional[pxPos] = None
+    monsters_px : List[pxPos] = field(default_factory=list)
+
+    #lcd : 添加exits的信息
+    exit_infos: dict[str,Optional[ExitInfo]] = field(default_factory=dict) #记录东西南北4个门的类型，状态，是否存在（不存在为None）
+    # exit_types: Dict[Pos, str] = field(default_factory=dict)
+    # exit_opened: Dict[Pos, bool] = field(default_factory=dict)
+
+    @property
+    def exit_types(self) -> Dict[Pos, str]:
+        """动态构建 tile -> exit_type 的映射"""
+        result = {}
+        for info in self.exit_infos.values():
+            if info is not None:
+                for tile in info.tiles:
+                    result[tile] = info.exit_type
+        return result
+
+    @property
+    def exit_opened(self) -> Dict[Pos, bool]:
+        """动态构建 tile -> opened 的映射"""
+        result = {}
+        for info in self.exit_infos.values():
+            if info is not None:
+                for tile in info.tiles:
+                    result[tile] = info.opened
+        return result
 
 
 def blank_tile():
@@ -263,11 +331,11 @@ def make_exit_patch(direction: str, exit_type: str, opened: bool = False):
     """
     生成和真实渲染一致的出口模板。
     #lcd :重命名方向
-    direction: up/down/left/right
+    direction: north/south/west/east
     exit_type: normal/locked_key/conditional
     """
     #使用mask
-    if direction in {"left", "right"}:
+    if direction in {"west", "east"}:
         # 竖向门：1列×2行，大小 16×32
         patch = np.zeros((32, 16, 3), dtype=np.uint8)
         mask = np.zeros((32, 16), dtype=bool)
@@ -294,12 +362,13 @@ def make_exit_patch(direction: str, exit_type: str, opened: bool = False):
 
     return patch,mask
 
+
 #识别exit
 class ExitDetector:
     def __init__(self):
         self.templates = []
 
-        for direction in ["up", "down", "left", "right"]:
+        for direction in ["north", "south", "west", "east"]:
             for exit_type in ["normal", "locked_key", "conditional"]:
                 for opened in [False, True]:
                     patch,mask = make_exit_patch(direction, exit_type, opened)
@@ -319,24 +388,24 @@ class ExitDetector:
 
         cands = []
 
-        # up/down 门通常在中间两格附近，但为了泛化，沿边缘滑动 2-tile 窗口
+        #north/south 门通常在中间两格附近，但为了泛化，沿边缘滑动 2-tile 窗口
         for x in range(0, ROOM_W - 1):
-            # up: y=0, 2列×1行
+            # north: y=0, 2列×1行
             patch = frame[0:16, x*16:(x+2)*16, :]
-            cands.append(("up", (x, 0), patch))
+            cands.append(("north", (x, 0), patch))
 
-            # down: y=7
+            # south: y=7
             patch = frame[7*16:8*16, x*16:(x+2)*16, :]
-            cands.append(("down", (x, 7), patch))
+            cands.append(("south", (x, 7), patch))
 
         for y in range(0, ROOM_H - 1):
-            # left: x=0, 1列×2行
+            # west: x=0, 1列×2行
             patch = frame[y*16:(y+2)*16, 0:16, :]
-            cands.append(("left", (0, y), patch))
+            cands.append(("west", (0, y), patch))
 
-            # right: x=9
+            # east: x=9
             patch = frame[y*16:(y+2)*16, 9*16:10*16, :]
-            cands.append(("right", (9, y), patch))
+            cands.append(("east", (9, y), patch))
 
         return cands
 
@@ -379,31 +448,6 @@ class ExitDetector:
 
         return exits
 
-from dataclasses import dataclass, field
-from typing import Optional, List, Tuple
-
-Pos = Tuple[int, int]
-pxPos = Tuple[float, float] #像素位置
-
-@dataclass
-class SymbolicObs:
-    grid: np.ndarray                    # shape: (8, 10)
-    player: Optional[Pos] = None
-    facing: str = "up"
-    monsters: List[Pos] = field(default_factory=list)
-    chests: List[Pos] = field(default_factory=list)
-    exits: List[Pos] = field(default_factory=list)
-    traps: List[Pos] = field(default_factory=list)
-    buttons: List[Pos] = field(default_factory=list)
-    switches: List[Pos] = field(default_factory=list)
-
-    #lcd : 添加player与monster的具体像素坐标
-    player_px : Optional[pxPos] = None
-    monsters_px : List[pxPos] = field(default_factory=list)
-
-    #lcd : 添加exits的信息
-    exits_info: dict[str,dict] = field(default_factory=dict) #记录上下左右4个门的类型，状态，是否存在（不存在为None）
-
     
 class PixelPerception:
     def __init__(self):
@@ -433,17 +477,22 @@ class PixelPerception:
                 else:
                     grid[y, x] = EMPTY
 
-        exit_infos = self.exit_detector.detect(frame)
+        exit_infos_list = self.exit_detector.detect(frame)
 
         exits = []
-        exits_info = {}
-        for e in exit_infos:
+        dirs = ["north", "south", "west", "east"]
+        exit_infos : dict[str,Optional[ExitInfo]] = {"north":None, "south":None, "west":None, "east":None}
+        for e in exit_infos_list:
             x, y = e["tile"]
             dir = e['direction']
-            exits_info[dir] = {'exit_type':e['exit_type'],'opened':e['opened']}
-            tiles = exits_info[dir].get('tiles',[])
-            tiles.append((x,y))
-            exits_info[dir]['tiles'] = tiles
+            #
+            if exit_infos[dir] is None:
+                exit_infos[dir] = ExitInfo(tiles=[], direction=dir)
+                exit_infos[dir].opened = e['opened']
+                exit_infos[dir].exit_type = e['exit_type']
+
+            exit_infos[dir].tiles.append((x,y))
+
             exits.append((x, y))
             grid[y, x] = EXIT
 
@@ -469,9 +518,9 @@ class PixelPerception:
             monsters_px.append(m['position_px'])
             grid[ty, tx] = MONSTER
 
-        return self.grid_to_symbolic(grid, player, facing, monsters,player_px,monsters_px,exits,exits_info)
+        return self.grid_to_symbolic(grid, player, facing, monsters,player_px,monsters_px,exits,exit_infos)
 
-    def grid_to_symbolic(self, grid, player, facing, monsters,player_px,monsters_px, exits_hint=None,exits_info : dict[str,dict] = None):
+    def grid_to_symbolic(self, grid, player, facing, monsters,player_px,monsters_px, exits_hint=None,exit_infos : dict[str,ExitInfo | None] = None):
         chests = []
         traps = []
         buttons = []
@@ -516,5 +565,5 @@ class PixelPerception:
             switches=switches,
             player_px=player_px,
             monsters_px=monsters_px,
-            exits_info=exits_info,
+            exit_infos=exit_infos,
         )
