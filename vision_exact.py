@@ -39,14 +39,67 @@ def build_mask(left : int,top : int, width : int,height : int) -> np.ndarray:
     mask[left:left+width, top:top+height] = True
     return mask
 
-def make_static_masks() -> dict[str, np.ndarray[bool]]:
+def make_static_masks() -> dict[str, np.ndarray]:
     masks = dict[str,np.ndarray]()
+
+    # floor
+    f = np.full(TILE_SHAPE,-1,dtype=int)
+    sp.draw_floor(f,0,0)
+    masks['floor'] = np.any(f != -1, axis=-1)
+
+    # wall
+    f = np.full(TILE_SHAPE,-1,dtype=int)
+    sp.draw_wall(f, 0, 0)
+    masks['wall'] = np.any(f != -1, axis=-1)
+
+    # gap
+    f = np.full(TILE_SHAPE,-1,dtype=int)
+    sp.draw_gap(f, 0, 0)
+    masks['gap'] = np.any(f != -1, axis=-1)
+
+    # bridge
+    f = np.full(TILE_SHAPE,-1,dtype=int)
+    sp.draw_bridge(f, 0, 0)
+    masks['bridge'] = np.any(f != -1, axis=-1)
 
     # chests: 三种 loot 外观不同，但都归为 CHEST
     for loot in ["key", "gold", "heal", "item", ""]:
-        f = np.full(TILE_SHAPE,-1,dtype=int)
+        f = np.full(TILE_SHAPE, -1, dtype=int)
         sp.draw_chest(f, 0, 0, opened=False, loot_kind=loot)
         masks[f"chest_{loot}"] = np.any(f != -1, axis=-1)  # 形状 (H, W)，只要任一通道非 -1 即为 True
+
+    # lcd : chests_opened: 打开了的chest相当于墙,归于WALL类
+    for loot in ["key", "gold", "heal", "item", ""]:
+        f = np.full(TILE_SHAPE,-1,dtype=int)
+        sp.draw_chest(f, 0, 0, opened=True, loot_kind=loot)
+        masks[f"chest_opened_{loot}"] = np.any(f != -1, axis=-1)
+
+    # button
+    for pressed in [False, True]:
+        f = np.full(TILE_SHAPE,-1,dtype=int)
+        sp.draw_button(f, 0, 0, pressed=pressed)
+        masks[f"button_{pressed}"] = np.any(f != -1, axis=-1)
+
+    # switch
+    for activated in [False, True]:
+        f = np.full(TILE_SHAPE,-1,dtype=int)
+        sp.draw_switch(f, 0, 0, activated=activated)
+        masks[f"switch_{activated}"] = np.any(f != -1, axis=-1)
+
+    # trap
+    f = np.full(TILE_SHAPE, -1, dtype=int)
+    sp.draw_trap(f, 0, 0)
+    masks["trap"] = np.any(f != -1, axis=-1)
+
+    # abyss
+    f = np.full(TILE_SHAPE,-1,dtype=int)
+    sp.draw_abyss(f, 0, 0)
+    masks['abyss'] = np.any(f != -1, axis=-1)
+
+    # npc
+    f = np.full(TILE_SHAPE,-1,dtype=int)
+    sp.draw_npc(f, 0, 0, sp.HIGHLIGHT)
+    masks['npc'] = np.any(f != -1, axis=-1)
 
     return masks
 
