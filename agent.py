@@ -1,132 +1,32 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from collections import deque
-from typing import Optional, Deque, Dict, List, Tuple, Set
-import numpy as np
+from typing import Deque, Optional
 
-import heapq
-# lcd : 将能够放到vision_exact.py的代码尽量放到通过导入来使用，不再重复定义
-from vision_exact import Pos, pxPos, SymbolicObs, PixelPerception, ExitInfo
-
-# lcd : 将这些枚举从其他文件中导入，不重复定义
-# # 动作编号
 from nesylink.core.constants import (
     ACTION_A,
     ACTION_B,
-    ACTION_NOOP,
+    ACTION_DOWN,
     ACTION_LEFT,
+    ACTION_NOOP,
     ACTION_RIGHT,
     ACTION_UP,
-    ACTION_DOWN
 )
 
-# 符号 tile 编码，先和文档里的 grid code 保持一致
-from Dataclass import (
-    EMPTY,
-    WALL,
-    PLAYER,
-    MONSTER,
-    CHEST,
-    EXIT,
-    TRAP,
-    BUTTON,
-    NPC,
-    GAP,
-    BRIDGE,
-    SWITCH,
-    # gird's metadata
-    TILE_SIZE,
-    ROOM_W,
-    ROOM_H,
-)
-
-from Dataclass import  BeliefState,SymbolicObs,Subgoal
-
-# lcd : 任务中可能发生的事件，复制到这里方便写代码
-TASK_MILESTONES: dict[str, tuple[str, ...]] = {
-    "mathematical_logic/task_3": (
-        "monster_killed",
-        "key_collected",
-    ),
-    "mathematical_logic/task_4": (
-        "switch_activated",
-        "key_collected",
-        "door_opened",
-        "item_collected",
-        "monster_killed",
-    ),
-}
-
-TASK5_EVENTS = (
-    "chest_opened",
-    "key_collected",
-    "gold_collected",
-    "item_collected",
-    "agent_healed",
-    "button_pressed",
-    "room_changed",
-    "door_opened",
-    "trap_triggered",
-    "monster_killed",
-    "exit_reached",
-    "environment_completed",
-    "world_completed",
-)
-
-# lcd
-def nearest_px(start: pxPos, candidates: List[pxPos]) -> Optional[pxPos]:
-    """nearest函数的像素级别版本"""
-    if not candidates:
-        return None
-    sx, sy = start
-    return min(candidates, key=lambda p: abs(p[0] - sx) + abs(p[1] - sy))
-
-# lcd
-def is_encounter_monster(sym: SymbolicObs, bound=10) -> int | None:
-    """
-    判断是否遭遇monster，如果是，返回monster所在方向facing,如果否，返回ACTION_NOOP=0
-    遭遇是指player与monster距离近(bound)，可以直接朝facing方向进行攻击
-    """
-    player_px = sym.player_px
-    monster_px = nearest_px(player_px, sym.monsters_px)
-
-    if monster_px is None:
-        return ACTION_NOOP
-    # monster位于right
-    if (monster_px[0] < player_px[0] + TILE_SIZE + bound) and (monster_px[0] > player_px[0] + TILE_SIZE) and \
-            (monster_px[1] > player_px[1] - TILE_SIZE) and (monster_px[1] < player_px[1] + TILE_SIZE):
-        print(monster_px[0], player_px[0] + TILE_SIZE + bound)
-
-        return ACTION_RIGHT
-
-    # monster位于left
-    if (monster_px[0] + TILE_SIZE > player_px[0] - bound) and (monster_px[0] + TILE_SIZE < player_px[0]) and \
-            (monster_px[1] > player_px[1] - TILE_SIZE) and (monster_px[1] < player_px[1] + TILE_SIZE):
-        return ACTION_LEFT
-
-    # monster位于up
-    if (monster_px[1] + TILE_SIZE > player_px[1] - bound) and (monster_px[1] + TILE_SIZE < player_px[1]) and \
-            (monster_px[0] > player_px[0] - TILE_SIZE) and (monster_px[0] < player_px[0] + TILE_SIZE):
-        return ACTION_UP
-
-    # monster位于down
-    if (monster_px[1] < player_px[1] + TILE_SIZE + bound) and (monster_px[1] > player_px[1] + TILE_SIZE) and \
-            (monster_px[0] > player_px[0] - TILE_SIZE) and (monster_px[0] < player_px[0] + TILE_SIZE):
-        return ACTION_DOWN
-
-    return ACTION_NOOP
-
-
-from Dataclass import Candidate
-from symbolicPlanner import SymbolicPlanner
-
-from optionController import OptionController
-
+from Dataclass import ROOM_H, ROOM_W, TILE_SIZE, BeliefState, Pos, Subgoal, SymbolicObs
+from optionController import action_to_face, action_to_name, get_exit_info_for_tile
+from optionController import exit_approach_tiles
+from optionController import exit_out_action
 from safetyShield import SafetyShield
+from symbolicPlanner import MOVE_ACTIONS, manhattan
+from symbolicPlanner import SymbolicPlanner
+from optionController import OptionController
+from vision_exact import PixelPerception
+
 
 class Policy:
     def __init__(self) -> None:
+        # 四层结构：像素感知 -> 信念记忆 -> 符号规划 -> 动作执行/安全过滤。
         self.perception = PixelPerception()
         self.belief = BeliefState()
         self.planner = SymbolicPlanner()
@@ -135,220 +35,332 @@ class Policy:
 
         self.action_queue: Deque[int] = deque()
         self.current_subgoal: Optional[Subgoal] = None
-
-        #维护sym
+        self.last_sym: Optional[SymbolicObs] = None
         self.last_action = ACTION_NOOP
-        self.sym: Optional[SymbolicObs] = None
-        self.perception_interval = 100  # 先用 4，稳定后可以改成 8
-
+        self.perception_interval = 40
+        # 出口需要连续按住方向直到真正换房；期间若收到换房反馈就停止强制前进。
         self.force_exit_action: Optional[int] = None
-        self.force_exit_steps: int = 0
+        self.force_exit_steps = 0
+        # 近身战状态：未面向怪物时先举盾，再转向；像素贴近但未对齐时短暂防御。
+        self.guarded_face_action: Optional[int] = None
+        self.pixel_guard_cooldown = 0
 
     def reset(self, seed: int | None = None, task_id: str | None = None) -> None:
         del seed
         self.belief.reset(task_id=task_id)
         self.action_queue.clear()
         self.current_subgoal = None
-
-        self.sym = None
+        self.last_sym = None
+        self.last_action = ACTION_NOOP
         self.force_exit_action = None
         self.force_exit_steps = 0
+        self.guarded_face_action = None
+        self.pixel_guard_cooldown = 0
 
     def act(self, obs, info=None) -> int:
-        #每次act之前维护好sym
-        if self.sym is not None:
-            self.update_sym(self.last_action)
-        # 是否需要再次识别图片
+        if self.pixel_guard_cooldown > 0:
+            self.pixel_guard_cooldown -= 1
+
+        # 正在穿过出口时优先执行出口动作，避免重规划把角色停在门口。
+        if self.force_exit_steps > 0 and self.force_exit_action is not None:
+            if self.info_has_any_event(info, {"room_changed", "exit_reached", "world_completed"}):
+                self.force_exit_action = None
+                self.force_exit_steps = 0
+                self.action_queue.clear()
+                self.last_sym = None
+            else:
+                self.force_exit_steps -= 1
+                self.belief.step += 1
+                self.belief.update_facing_from_action(self.force_exit_action)
+                self.last_action = self.force_exit_action
+                return int(self.force_exit_action)
+
         need_vision = (
-                self.sym is None
-                or not self.action_queue
-                or self.belief.step % self.perception_interval == 0
-                or self.sym.monsters  # 如果有monster要继续vision
+            self.last_sym is None
+            or not self.action_queue
+            or self.belief.step % self.perception_interval == 0
+            or self.info_has_replan_event(info)
         )
 
         if need_vision:
+            # 重新从像素帧抽象符号状态，修正移动怪物和动态机关带来的误差。
             sym = self.perception(obs)
-            self.sym = sym
+            self.last_sym = sym
             self.belief.update(sym, info)
         else:
-            # 如果不识别图片，要推断变化值：facing,player_px,player
-            sym = self.sym
+            # 队列执行中用上一帧的像素位置做轻量预测，减少每步模板匹配开销。
+            self.update_sym_from_action(self.last_action)
+            sym = self.last_sym
             self.belief.step += 1
 
-        replanned = False
-        # 附近有monster
-        encounter_monster = is_encounter_monster(sym, )
-        if encounter_monster:
-            replanned = True
+        self.mark_obvious_subgoal_progress(sym)
 
-        # 3. 判断是否需要重新规划
-        if self.need_replan(sym, obs, info, replanned):
-            replanned = True
+        if self.need_replan(sym, info):
             self.current_subgoal = self.planner.next_subgoal(sym, self.belief)
-            actions = self.controller.build_actions(
-                sym,
-                self.belief,
-                self.current_subgoal
-            )
+            actions = self.controller.build_actions(sym, self.belief, self.current_subgoal)
             self.action_queue = deque(actions)
 
-            # 调试输出 1：只在重新规划时打印
-            print(
-                "[REPLAN]",
-                "step=", self.belief.step,
-                "player=", sym.player,
-                "player_px=", sym.player_px,
-                "chests=", sym.chests,
-                "exits=", sym.exits,
-                "monsters=", sym.monsters,
-                "has_key=", self.belief.has_key,
-                "subgoal=", self.current_subgoal,
-                "new_queue=", len(self.action_queue),
-            )
+        raw_action = self.action_queue.popleft() if self.action_queue else ACTION_NOOP
 
-        # 4. 没动作就等待
-        if not self.action_queue:
-            raw_action = ACTION_NOOP
-        else:
-            raw_action = self.action_queue.popleft()
+        # 宝箱/开关在环境里只要求相邻，不要求面向；相邻后立即交互可节省时间。
+        interact_action = self.interactable_action_override(sym)
+        if interact_action is not None:
+            self.belief.last_action = interact_action
+            self.last_action = interact_action
+            return int(interact_action)
 
-        # 5. 安全过滤
-        action = self.shield.filter(raw_action, sym, self.belief)
+        # 怪物近身时覆盖队列动作，防止过期路径把“转向”误执行成撞向怪物。
+        combat_action = self.combat_action_override(sym, raw_action)
+        if combat_action is not None:
+            self.belief.update_facing_from_action(combat_action)
+            self.belief.last_action = combat_action
+            self.last_action = combat_action
+            return int(combat_action)
 
-        if self.belief.step % 1 == 0 or replanned:
-            # lcd : 增加调试信息
-            print(f"<<<<<<<<<<<< step: {self.belief.step} >>>>>>>>>>>>")
-            print(
-                "[INFO]",
-                "player=", info['agent'],
-                "monster=", info["entities"]["monsters_remaining"],
-                "event=", info["events"]["records"]
-            )
-            print(
-                "[ACT]",
-                "step=", self.belief.step,
-                "player=", sym.player,
-                "player_px=", sym.player_px,
-                "monster=", sym.monsters,
-                "monster_px=", sym.monsters_px,
-                "chests=",sym.chests,
-                "raw=", raw_action,
-                "safe=", action,
-                "queue_left=", len(self.action_queue),
-                "stuck=", self.belief.stuck_count,
-                "subgoal=", self.current_subgoal,
-            )
+        required_exit_action = self.exit_action_if_on_current_exit(sym)
+        if (
+            self.current_subgoal is not None
+            and self.current_subgoal.kind == "go_exit"
+            and required_exit_action is not None
+        ):
+            raw_action = required_exit_action
+            self.force_exit_action = required_exit_action
+            self.force_exit_steps = 40
+            self.action_queue.clear()
+            if self.belief.current_room is not None:
+                exit_info = None
+                if self.current_subgoal.target is not None:
+                    exit_info = get_exit_info_for_tile(sym, self.current_subgoal.target)
+                self.belief.exit_attempt_room = self.belief.current_room
+                self.belief.exit_attempt_key = self.current_subgoal.target
+                self.belief.exit_attempt_direction = exit_info.direction if exit_info is not None else None
+            self.belief.update_facing_from_action(raw_action)
+            self.belief.last_action = raw_action
+            self.last_action = raw_action
+            return int(raw_action)
 
-        self.belief.last_action = action
-        # 如果不识别图片，要推断变化值：facing,player_px,player
-        self.last_action = action
-        return int(action)
+        safe_action, consume_raw = self.shield.filter(raw_action, sym, self.belief)
+        if not consume_raw:
+            self.action_queue.appendleft(raw_action)
+            self.last_sym = None
 
-    def update_sym(self, action: int):
-        """
-        如果不识别图片，要推断变化值：facing,player_px,player
-        有时候player会对图片进行遮挡，导致exit无法识别，可以使用planner的记忆进行处理
-        一般action取self.last_action
-        一般在self.act开头调用，保障sym无误
-        """
-        dx, dy = 0, 0
-        if action == ACTION_LEFT:
-            self.sym.facing = 'left'
-            dx -= 1
-        if action == ACTION_RIGHT:
-            self.sym.facing = 'right'
-            dx += 1
-        if action == ACTION_UP:
-            self.sym.facing = 'up'
-            dy -= 1
-        if action == ACTION_DOWN:
-            self.sym.facing = 'down'
-            dy += 1
-        x, y = self.sym.player_px
-        # 如果能保障action合法，则坐标必然在有 0<=x<=144 and 0<=y<=112 遇到exit应该取模
-        self.sym.player_px = (((x + dx) % 145), ((y + dy) % 113))
-        cx = (x + dx) % 145 + 8
-        cy = (y + dy) % 113 + 12
+        self.belief.update_facing_from_action(safe_action)
+        self.belief.last_action = safe_action
+        self.last_action = safe_action
+        return int(safe_action)
 
-        tx = max(0, min(9, cx // 16))
-        ty = max(0, min(7, cy // 16))
-
-        self.sym.player = (tx, ty)
-
-        # 测试发现agent有概率遮住exit,需要利用房间记忆对sym的exits进行维护
-        cur_room = self.planner.current_room_id
-        print(cur_room, 'cur_room')
-        self.sym.exits = []
-        for dir, exitInfo in self.planner.room_exits_info[cur_room].items():
-            if (exitInfo is None) or (exitInfo.tiles is None):
-                continue
-            tiles = exitInfo.tiles
-            self.sym.exit_infos[dir] = exitInfo  # 维护exit_infos
-            for t in tiles:
-                if t not in self.sym.exits:
-                    self.sym.exits.append(t)  # 维护exits
-        print(self.sym.exits)
-
-    def need_replan(self, sym: SymbolicObs, obs, info=None, force_replan=False) -> bool:
-        """判断是否需要重新规划"""
-        # lcd : 强制replan,发生特定事情需要，比如有monster靠近
-        if force_replan:
-            return True
-
-        # 没有动作了，必须重新规划,并对planner进行更新
-        if not self.action_queue:
-            self.planner.achieve_subgoal(self.current_subgoal, sym)
-            return True
-
-        # 识别不到玩家，先不继续盲走
+    def need_replan(self, sym: SymbolicObs, info=None) -> bool:
+        # 子目标完成、目标消失、卡住或发生关键反馈时重规划。
         if sym.player is None:
             self.action_queue.clear()
             return True
-
+        if not self.action_queue:
+            return True
+        if self.info_has_replan_event(info):
+            self.action_queue.clear()
+            return True
+        if self.belief.stuck_count >= 8:
+            self.action_queue.clear()
+            return True
+        if self.current_subgoal is not None:
+            target = self.current_subgoal.target
+            if self.current_subgoal.kind == "find_chest" and target not in sym.chests:
+                self.action_queue.clear()
+                return True
+            if self.current_subgoal.kind == "attack_monster" and target not in sym.monsters:
+                self.action_queue.clear()
+                return True
         return False
 
-    def exit_action_if_at_exit(self, sym: SymbolicObs) -> Optional[int]:
-        """
-        如果玩家已经在出口边缘，返回应该朝哪个方向出门。
-        允许出口检测只返回双格门的其中一个 tile。
-        """
-        if sym.player is None:
+    def info_has_replan_event(self, info=None) -> bool:
+        if not isinstance(info, dict):
+            return False
+        events = info.get("events", {})
+        if not isinstance(events, dict):
+            return False
+        flags = events.get("flags", {}) or {}
+        important = {
+            "chest_opened",
+            "key_collected",
+            "gold_collected",
+            "item_collected",
+            "agent_healed",
+            "monster_damaged",
+            "monster_killed",
+            "door_opened",
+            "button_pressed",
+            "switch_activated",
+            "bridge_rotated",
+            "dynamic_object_state_changed",
+            "room_changed",
+            "exit_reached",
+            "trap_triggered",
+            "world_completed",
+        }
+        return any(bool(flags.get(name, False)) for name in important)
+
+    def info_has_any_event(self, info, names: set[str]) -> bool:
+        if not isinstance(info, dict):
+            return False
+        events = info.get("events", {})
+        if not isinstance(events, dict):
+            return False
+        flags = events.get("flags", {}) or {}
+        return any(bool(flags.get(name, False)) for name in names)
+
+    def mark_obvious_subgoal_progress(self, sym: SymbolicObs) -> None:
+        if self.current_subgoal is None or sym.player is None:
+            return
+        if self.current_subgoal.kind == "press_button" and sym.player == self.current_subgoal.target:
+            self.belief.pressed_buttons.add(sym.player)
+
+    def interactable_action_override(self, sym: SymbolicObs) -> Optional[int]:
+        # A 键优先交互相邻的宝箱/开关；这里直接消耗队列，避免继续做多余对齐。
+        if (
+            sym.player is None
+            or self.current_subgoal is None
+            or self.current_subgoal.kind not in {"find_chest", "activate_switch"}
+            or self.current_subgoal.target is None
+        ):
+            return None
+        if manhattan(sym.player, self.current_subgoal.target) != 1:
+            return None
+        self.action_queue.clear()
+        return ACTION_A
+
+    def update_sym_from_action(self, action: int) -> None:
+        # 简单的像素运动模型：每个移动动作预测 1px，用中心点映射回 tile。
+        sym = self.last_sym
+        if sym is None or sym.player_px is None or sym.player is None:
+            return
+        if action not in MOVE_ACTIONS:
+            return
+
+        dx, dy = 0.0, 0.0
+        if action == ACTION_LEFT:
+            dx = -1.0
+            sym.facing = "left"
+        elif action == ACTION_RIGHT:
+            dx = 1.0
+            sym.facing = "right"
+        elif action == ACTION_UP:
+            dy = -1.0
+            sym.facing = "up"
+        elif action == ACTION_DOWN:
+            dy = 1.0
+            sym.facing = "down"
+
+        x, y = sym.player_px
+        x = max(0.0, min(float((ROOM_W - 1) * TILE_SIZE), x + dx))
+        y = max(0.0, min(float((ROOM_H - 1) * TILE_SIZE), y + dy))
+        sym.player_px = (x, y)
+        tx = int(max(0, min(ROOM_W - 1, (x + TILE_SIZE * 0.5) // TILE_SIZE)))
+        ty = int(max(0, min(ROOM_H - 1, (y + TILE_SIZE * 0.5) // TILE_SIZE)))
+        sym.player = (tx, ty)
+        self.belief.update_facing_from_action(action)
+        sym.facing = self.belief.facing
+
+    def combat_action_override(self, sym: SymbolicObs, action: int) -> Optional[int]:
+        # 通用近身战规则：
+        # 1. 相邻且已面向怪物 -> 直接攻击。
+        # 2. 相邻但未面向 -> 先举盾，再转向/攻击。
+        # 3. 像素距离很近但斜向未对齐 -> 带冷却举盾保命。
+        if (
+            sym.player is None
+            or self.current_subgoal is None
+            or self.current_subgoal.kind != "attack_monster"
+        ):
+            self.guarded_face_action = None
             return None
 
-        px, py = sym.player
+        face_action = self.adjacent_monster_face_action(sym)
+        if face_action is not None:
+            desired_facing = action_to_name(face_action)
+            already_facing = self.belief.facing == desired_facing or sym.facing == desired_facing
 
-        for ex, ey in sym.exits:
-            # north exit
-            if ey == 0 and py == 0 and abs(px - ex) <= 1:
-                return ACTION_UP
+            if already_facing:
+                if action != ACTION_A:
+                    self.action_queue.clear()
+                self.guarded_face_action = None
+                return ACTION_A
 
-            # south exit
-            if ey == ROOM_H - 1 and py == ROOM_H - 1 and abs(px - ex) <= 1:
-                return ACTION_DOWN
+            if action == face_action:
+                if self.last_action == ACTION_B or self.guarded_face_action == face_action:
+                    self.guarded_face_action = None
+                    return face_action
+                self.guarded_face_action = face_action
+                self.action_queue.appendleft(action)
+                return ACTION_B
 
-            # west exit
-            if ex == 0 and px == 0 and abs(py - ey) <= 1:
-                return ACTION_LEFT
+            if action == ACTION_A:
+                if self.last_action == ACTION_B:
+                    self.action_queue.appendleft(ACTION_A)
+                    return face_action
+                self.guarded_face_action = face_action
+                self.action_queue.appendleft(ACTION_A)
+                self.action_queue.appendleft(face_action)
+                return ACTION_B
 
-            # east exit
-            if ex == ROOM_W - 1 and px == ROOM_W - 1 and abs(py - ey) <= 1:
-                return ACTION_RIGHT
+            return None
+
+        self.guarded_face_action = None
+        if (
+            action in MOVE_ACTIONS
+            and self.pixel_guard_cooldown == 0
+            and self.last_action != ACTION_B
+            and self.pixel_close_unaligned_monster(sym)
+        ):
+            self.pixel_guard_cooldown = 6
+            self.action_queue.appendleft(action)
+            return ACTION_B
 
         return None
 
-    def is_border_leaving_action(self, player: Optional[Pos], action: int) -> bool:
-        """判断player位于border边缘且在撞墙"""
-        if player is None:
+    def adjacent_monster_face_action(self, sym: SymbolicObs) -> Optional[int]:
+        # 返回当前相邻怪物所在方向；优先使用视觉中的真实相邻怪物。
+        if (
+            sym.player is None
+            or self.current_subgoal is None
+            or self.current_subgoal.kind != "attack_monster"
+        ):
+            return None
+        for monster in sym.monsters:
+            if manhattan(sym.player, monster) == 1:
+                return action_to_face(sym.player, monster)
+        target = self.current_subgoal.target
+        if target is not None and manhattan(sym.player, target) == 1:
+            return action_to_face(sym.player, target)
+        return None
+
+    def pixel_close_unaligned_monster(self, sym: SymbolicObs) -> bool:
+        # tile 还没相邻时，像素 AABB 可能已经接近接触；此时短暂举盾更稳。
+        if sym.player_px is None or not sym.monsters_px:
             return False
+        px, py = sym.player_px
+        for mx, my in sym.monsters_px:
+            dx = abs(mx - px)
+            dy = abs(my - py)
+            close = dx <= TILE_SIZE * 1.25 and dy <= TILE_SIZE * 1.25
+            aligned = dx <= 4.0 or dy <= 4.0
+            if close and not aligned:
+                return True
+        return False
 
-        x, y = player
+    def exit_action_if_on_current_exit(self, sym: SymbolicObs) -> Optional[int]:
+        # 玩家位于出口或出口内侧邻接格时，直接持续朝出口方向移动。
+        if sym.player is None or self.current_subgoal is None or self.current_subgoal.kind != "go_exit":
+            return None
+        target = self.current_subgoal.target
+        if target is None:
+            return None
+        info = get_exit_info_for_tile(sym, target)
+        if info is None:
+            return None
 
-        return (
-                (y == 0 and action == ACTION_UP) or
-                (y == ROOM_H - 1 and action == ACTION_DOWN) or
-                (x == 0 and action == ACTION_LEFT) or
-                (x == ROOM_W - 1 and action == ACTION_RIGHT)
-        )
+        valid_tiles = set(info.tiles) | set(exit_approach_tiles(info))
+        if sym.player in valid_tiles:
+            return exit_out_action(info)
+        return None
 
 
 def make_policy() -> Policy:
