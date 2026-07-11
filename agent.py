@@ -93,6 +93,9 @@ class Policy:
             sym = self.last_sym
             self.belief.step += 1
 
+        # if self.belief.step % 10 == 0:
+        #     save_training_frame(obs, self.belief.step, 5)
+
         self.mark_obvious_subgoal_progress(sym)
 
         if self.need_replan(sym, info):
@@ -198,6 +201,11 @@ class Policy:
             "world_completed",
         }
         return any(bool(flags.get(name, False)) for name in important)
+    
+    # def info_has_replan_reward(self, info=None)->bool:
+    #     if not isinstance(info, dict):
+    #         return False
+    #     reward = info.get
 
     def info_has_any_event(self, info, names: set[str]) -> bool:
         if not isinstance(info, dict):
@@ -365,3 +373,18 @@ class Policy:
 
 def make_policy() -> Policy:
     return Policy()
+
+from pathlib import Path
+from PIL import Image
+import numpy as np
+
+
+def save_training_frame(obs, step: int, task_id:int = 1, seed: int = 0) -> None:
+    output_dir = Path("dataset/frames") / f"seed_{seed}" / f"task{task_id}"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    frame = np.asarray(obs)[:128, :160, :3].astype(np.uint8)
+
+    Image.fromarray(frame).save(
+        output_dir / f"frame_{step:06d}.png"
+    )

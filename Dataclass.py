@@ -35,7 +35,7 @@ ROOM_W = 10
 ROOM_H = 8
 
 Pos = Tuple[int, int] # Tile position in the grid (x, y)
-pxPos = Tuple[float, float] # Pixel position in the environment (x, y)
+pxPos = Tuple[float, float]  # 像素坐标，表示地图区域内的左上角位置 (x, y)
 RoomSig = Tuple[Tuple[int, ...], ...] # Room signature, a tuple of tuples representing the static structure of a room.
 
 # ExitInfo dataclass, representing an exit in a room, including its tiles, direction, type, and other state information.
@@ -287,17 +287,25 @@ class BeliefState:
 
     def update_room_memory(self, sym: SymbolicObs) -> None:
         """把当前视觉状态合并进房间记忆，并维护出口拓扑。"""
-        sig = room_signature(sym)
+        observed_sig = room_signature(sym)
         entered_from_room: Optional[RoomSig] = None
         reverse_exit_direction: Optional[str] = None
-        if self.current_room is not None and self.current_room != sig:
+        has_exit_attempt = (
+            self.exit_attempt_room is not None
+            and self.exit_attempt_key is not None
+        )
+
+        if self.current_room is None:
+            self.current_room = observed_sig
+        elif self.current_room != observed_sig and has_exit_attempt:
             self.previous_room = self.current_room
             entered_from_room = self.current_room
-        self.current_room = sig
+            self.current_room = observed_sig
+
+        sig = self.current_room
 
         if (
-            self.previous_room is not None
-            and self.previous_room != sig
+            entered_from_room is not None
             and self.exit_attempt_room is not None
             and self.exit_attempt_key is not None
         ):
@@ -399,7 +407,7 @@ class BeliefState:
             return "west"
         return None
 
-# Subgoal and Candidate dataclasses for planning and decision-making in the environment.
+# 规划器内部使用的子目标和候选目标记录。
 @dataclass
 class Subgoal:
     kind: str

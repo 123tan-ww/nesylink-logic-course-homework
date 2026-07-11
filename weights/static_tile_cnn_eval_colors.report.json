@@ -1,0 +1,1149 @@
+{
+  "checkpoint": "E:\\nesylink\\weights\\static_tile_cnn_eval_colors.pt",
+  "best_epoch": 23,
+  "best_val_loss": 5.7491850136590284e-05,
+  "terrain_classes": [
+    "floor",
+    "wall",
+    "gap",
+    "bridge",
+    "abyss"
+  ],
+  "object_classes": [
+    "none",
+    "chest_closed",
+    "chest_open",
+    "button_up",
+    "button_down",
+    "switch_off",
+    "switch_on",
+    "trap",
+    "npc"
+  ],
+  "history": [
+    {
+      "epoch": 1,
+      "learning_rate": 0.001,
+      "train": {
+        "loss": 0.4787250195724377,
+        "terrain_loss": 0.1467484777658314,
+        "object_loss": 0.3319765427622242,
+        "terrain_accuracy": 0.9723958333333333,
+        "object_accuracy": 0.9417798913043478,
+        "joint_accuracy": 0.9289175724637682
+      },
+      "val": {
+        "loss": 0.018245394187776938,
+        "terrain_loss": 0.006872084466875463,
+        "object_loss": 0.01137330992606239,
+        "terrain_accuracy": 1.0,
+        "object_accuracy": 1.0,
+        "joint_accuracy": 1.0
+      }
+    },
+    {
+      "epoch": 2,
+      "learning_rate": 0.001,
+      "train": {
+        "loss": 0.025555308527596618,
+        "terrain_loss": 0.010564351625794518,
+        "object_loss": 0.01499095686805853,
+        "terrain_accuracy": 0.999116847826087,
+        "object_accuracy": 0.9987998188405797,
+        "joint_accuracy": 0.9979166666666667
+      },
+      "val": {
+        "loss": 0.045615948817652206,
+        "terrain_loss": 0.003485937369312497,
+        "object_loss": 0.042130011527974534,
+        "terrain_accuracy": 1.0,
+        "object_accuracy": 0.9782608695652174,
+        "joint_accuracy": 0.9782608695652174
+      }
+    },
+    {
+      "epoch": 3,
+      "learning_rate": 0.001,
+      "train": {
+        "loss": 0.01414506768780774,
+        "terrain_loss": 0.006377737774797108,
+        "object_loss": 0.007767329940005489,
+        "terrain_accuracy": 0.9992300724637682,
+        "object_accuracy": 0.9992074275362319,
+        "joint_accuracy": 0.9984827898550724
+      },
+      "val": {
+        "loss": 0.00631965485981841,
+        "terrain_loss": 0.004467541335717491,
+        "object_loss": 0.001852113507229133,
+        "terrain_accuracy": 0.9998188405797102,
+        "object_accuracy": 1.0,
+        "joint_accuracy": 0.9998188405797102
+      }
+    },
+    {
+      "epoch": 4,
+      "learning_rate": 0.001,
+      "train": {
+        "loss": 0.011332371805295132,
+        "terrain_loss": 0.003970122498973016,
+        "object_loss": 0.00736224932488108,
+        "terrain_accuracy": 0.9994565217391305,
+        "object_accuracy": 0.9991394927536232,
+        "joint_accuracy": 0.9985960144927536
+      },
+      "val": {
+        "loss": 0.0008277910552325024,
+        "terrain_loss": 0.00031113709252246697,
+        "object_loss": 0.0005166539628787533,
+        "terrain_accuracy": 1.0,
+        "object_accuracy": 1.0,
+        "joint_accuracy": 1.0
+      }
+    },
+    {
+      "epoch": 5,
+      "learning_rate": 0.001,
+      "train": {
+        "loss": 0.004871822832881108,
+        "terrain_loss": 0.0029575373639986998,
+        "object_loss": 0.0019142854513357515,
+        "terrain_accuracy": 0.9996603260869565,
+        "object_accuracy": 0.9999547101449275,
+        "joint_accuracy": 0.9996150362318841
+      },
+      "val": {
+        "loss": 0.0024444466223940255,
+        "terrain_loss": 0.0020980402485609216,
+        "object_loss": 0.00034640639197027335,
+        "terrain_accuracy": 1.0,
+        "object_accuracy": 1.0,
+        "joint_accuracy": 1.0
+      }
+    },
+    {
+      "epoch": 6,
+      "learning_rate": 0.001,
+      "train": {
+        "loss": 0.01326108286427199,
+        "terrain_loss": 0.007501378336219468,
+        "object_loss": 0.005759704470351014,
+        "terrain_accuracy": 0.998731884057971,
+        "object_accuracy": 0.9993432971014493,
+        "joint_accuracy": 0.9980978260869565
+      },
+      "val": {
+        "loss": 0.003171816757083803,
+        "terrain_loss": 0.0006887464849042125,
+        "object_loss": 0.0024830702759757422,
+        "terrain_accuracy": 0.9998188405797102,
+        "object_accuracy": 1.0,
+        "joint_accuracy": 0.9998188405797102
+      }
+    },
+    {
+      "epoch": 7,
+      "learning_rate": 0.001,
+      "train": {
+        "loss": 0.010161329986716526,
+        "terrain_loss": 0.005632372637805731,
+        "object_loss": 0.004528957280073909,
+        "terrain_accuracy": 0.9990489130434783,
+        "object_accuracy": 0.9994565217391305,
+        "joint_accuracy": 0.9985507246376811
+      },
+      "val": {
+        "loss": 0.05915890030927308,
+        "terrain_loss": 0.00039469451918536664,
+        "object_loss": 0.05876420439234462,
+        "terrain_accuracy": 1.0,
+        "object_accuracy": 0.9768115942028985,
+        "joint_accuracy": 0.9768115942028985
+      }
+    },
+    {
+      "epoch": 8,
+      "learning_rate": 0.001,
+      "train": {
+        "loss": 0.005513028673949125,
+        "terrain_loss": 0.003400397645410798,
+        "object_loss": 0.002112631054605236,
+        "terrain_accuracy": 0.9995244565217392,
+        "object_accuracy": 0.9997961956521739,
+        "joint_accuracy": 0.9993206521739131
+      },
+      "val": {
+        "loss": 0.0009033459104577323,
+        "terrain_loss": 0.0005639329379820096,
+        "object_loss": 0.0003394129557831996,
+        "terrain_accuracy": 1.0,
+        "object_accuracy": 1.0,
+        "joint_accuracy": 1.0
+      }
+    },
+    {
+      "epoch": 9,
+      "learning_rate": 0.0005,
+      "train": {
+        "loss": 0.0025636890181002844,
+        "terrain_loss": 0.0013578824213017588,
+        "object_loss": 0.0012058065939303218,
+        "terrain_accuracy": 0.9998414855072464,
+        "object_accuracy": 0.9997735507246377,
+        "joint_accuracy": 0.9996150362318841
+      },
+      "val": {
+        "loss": 0.00042753054007914836,
+        "terrain_loss": 0.00012122799703122482,
+        "object_loss": 0.00030630254169818066,
+        "terrain_accuracy": 1.0,
+        "object_accuracy": 1.0,
+        "joint_accuracy": 1.0
+      }
+    },
+    {
+      "epoch": 10,
+      "learning_rate": 0.0005,
+      "train": {
+        "loss": 0.0014237756486577184,
+        "terrain_loss": 0.0006436084328384638,
+        "object_loss": 0.0007801672118965644,
+        "terrain_accuracy": 0.9998867753623188,
+        "object_accuracy": 0.9999773550724638,
+        "joint_accuracy": 0.9998641304347826
+      },
+      "val": {
+        "loss": 0.00014502495810713456,
+        "terrain_loss": 6.910090434256994e-05,
+        "object_loss": 7.592405511430749e-05,
+        "terrain_accuracy": 1.0,
+        "object_accuracy": 1.0,
+        "joint_accuracy": 1.0
+      }
+    },
+    {
+      "epoch": 11,
+      "learning_rate": 0.0005,
+      "train": {
+        "loss": 0.0033467995532639864,
+        "terrain_loss": 0.0013869121530687139,
+        "object_loss": 0.001959887378177592,
+        "terrain_accuracy": 0.9998867753623188,
+        "object_accuracy": 0.9997735507246377,
+        "joint_accuracy": 0.9996603260869565
+      },
+      "val": {
+        "loss": 0.0008104470965074564,
+        "terrain_loss": 0.00070456785661931,
+        "object_loss": 0.00010587924667904018,
+        "terrain_accuracy": 1.0,
+        "object_accuracy": 1.0,
+        "joint_accuracy": 1.0
+      }
+    },
+    {
+      "epoch": 12,
+      "learning_rate": 0.0005,
+      "train": {
+        "loss": 0.0027160640578190592,
+        "terrain_loss": 0.001618699464386842,
+        "object_loss": 0.0010973645907327316,
+        "terrain_accuracy": 0.9998414855072464,
+        "object_accuracy": 0.9998414855072464,
+        "joint_accuracy": 0.9996829710144928
+      },
+      "val": {
+        "loss": 0.00015904930448901934,
+        "terrain_loss": 8.60047647501747e-05,
+        "object_loss": 7.304453959121652e-05,
+        "terrain_accuracy": 1.0,
+        "object_accuracy": 1.0,
+        "joint_accuracy": 1.0
+      }
+    },
+    {
+      "epoch": 13,
+      "learning_rate": 0.0005,
+      "train": {
+        "loss": 0.0021591495293988914,
+        "terrain_loss": 0.0011332607145195124,
+        "object_loss": 0.0010258887983028494,
+        "terrain_accuracy": 0.9999320652173913,
+        "object_accuracy": 0.9999320652173913,
+        "joint_accuracy": 0.9998641304347826
+      },
+      "val": {
+        "loss": 0.00042114550841675286,
+        "terrain_loss": 0.0003336812504710616,
+        "object_loss": 8.746425438152653e-05,
+        "terrain_accuracy": 1.0,
+        "object_accuracy": 1.0,
+        "joint_accuracy": 1.0
+      }
+    },
+    {
+      "epoch": 14,
+      "learning_rate": 0.0005,
+      "train": {
+        "loss": 0.005292654895237174,
+        "terrain_loss": 0.0035049471193064085,
+        "object_loss": 0.001787707779009867,
+        "terrain_accuracy": 0.9995923913043478,
+        "object_accuracy": 0.9997282608695652,
+        "joint_accuracy": 0.9993206521739131
+      },
+      "val": {
+        "loss": 0.00012406749571538598,
+        "terrain_loss": 7.294145749335218e-05,
+        "object_loss": 5.1126039234340946e-05,
+        "terrain_accuracy": 1.0,
+        "object_accuracy": 1.0,
+        "joint_accuracy": 1.0
+      }
+    },
+    {
+      "epoch": 15,
+      "learning_rate": 0.0005,
+      "train": {
+        "loss": 0.0027662275021598823,
+        "terrain_loss": 0.001697355208444355,
+        "object_loss": 0.001068872267184644,
+        "terrain_accuracy": 0.9998641304347826,
+        "object_accuracy": 0.9998414855072464,
+        "joint_accuracy": 0.999705615942029
+      },
+      "val": {
+        "loss": 0.00016446073136319392,
+        "terrain_loss": 0.00011960268135568923,
+        "object_loss": 4.4858053308047785e-05,
+        "terrain_accuracy": 1.0,
+        "object_accuracy": 1.0,
+        "joint_accuracy": 1.0
+      }
+    },
+    {
+      "epoch": 16,
+      "learning_rate": 0.0005,
+      "train": {
+        "loss": 0.005189477298172542,
+        "terrain_loss": 0.0031339567181640775,
+        "object_loss": 0.00205552059055333,
+        "terrain_accuracy": 0.9995471014492754,
+        "object_accuracy": 0.9996829710144928,
+        "joint_accuracy": 0.9992527173913044
+      },
+      "val": {
+        "loss": 0.004918244621459989,
+        "terrain_loss": 0.004047096601646879,
+        "object_loss": 0.0008711480984356308,
+        "terrain_accuracy": 0.9989130434782608,
+        "object_accuracy": 1.0,
+        "joint_accuracy": 0.9989130434782608
+      }
+    },
+    {
+      "epoch": 17,
+      "learning_rate": 0.0005,
+      "train": {
+        "loss": 0.007379851626583199,
+        "terrain_loss": 0.00576729365941677,
+        "object_loss": 0.0016125579741682208,
+        "terrain_accuracy": 0.9985960144927536,
+        "object_accuracy": 0.9998414855072464,
+        "joint_accuracy": 0.9984375
+      },
+      "val": {
+        "loss": 0.00020098784918208486,
+        "terrain_loss": 7.647551592790346e-05,
+        "object_loss": 0.0001245123347726421,
+        "terrain_accuracy": 1.0,
+        "object_accuracy": 1.0,
+        "joint_accuracy": 1.0
+      }
+    },
+    {
+      "epoch": 18,
+      "learning_rate": 0.0005,
+      "train": {
+        "loss": 0.004663750070882826,
+        "terrain_loss": 0.002107886855315039,
+        "object_loss": 0.0025558631878136993,
+        "terrain_accuracy": 0.9996603260869565,
+        "object_accuracy": 0.9995244565217392,
+        "joint_accuracy": 0.9992074275362319
+      },
+      "val": {
+        "loss": 0.00020341176153295605,
+        "terrain_loss": 0.00010688941203651653,
+        "object_loss": 9.6522347018396e-05,
+        "terrain_accuracy": 1.0,
+        "object_accuracy": 1.0,
+        "joint_accuracy": 1.0
+      }
+    },
+    {
+      "epoch": 19,
+      "learning_rate": 0.00025,
+      "train": {
+        "loss": 0.0034824343228651937,
+        "terrain_loss": 0.0022556054362845,
+        "object_loss": 0.0012268288886053084,
+        "terrain_accuracy": 0.999705615942029,
+        "object_accuracy": 0.9998867753623188,
+        "joint_accuracy": 0.9995923913043478
+      },
+      "val": {
+        "loss": 0.00015655657490782872,
+        "terrain_loss": 0.00012434588897504263,
+        "object_loss": 3.2210688442464215e-05,
+        "terrain_accuracy": 1.0,
+        "object_accuracy": 1.0,
+        "joint_accuracy": 1.0
+      }
+    },
+    {
+      "epoch": 20,
+      "learning_rate": 0.00025,
+      "train": {
+        "loss": 0.0018276861199832428,
+        "terrain_loss": 0.0014959426964987475,
+        "object_loss": 0.0003317434209959069,
+        "terrain_accuracy": 0.9998641304347826,
+        "object_accuracy": 0.9999773550724638,
+        "joint_accuracy": 0.9998414855072464
+      },
+      "val": {
+        "loss": 0.0002706061855069888,
+        "terrain_loss": 0.0002427601508975056,
+        "object_loss": 2.7846032743041904e-05,
+        "terrain_accuracy": 1.0,
+        "object_accuracy": 1.0,
+        "joint_accuracy": 1.0
+      }
+    },
+    {
+      "epoch": 21,
+      "learning_rate": 0.00025,
+      "train": {
+        "loss": 0.002142597750703251,
+        "terrain_loss": 0.001432938525407656,
+        "object_loss": 0.0007096592252112358,
+        "terrain_accuracy": 0.9998188405797102,
+        "object_accuracy": 0.9998867753623188,
+        "joint_accuracy": 0.999705615942029
+      },
+      "val": {
+        "loss": 0.0001174920514408175,
+        "terrain_loss": 9.041304284187061e-05,
+        "object_loss": 2.707900786080627e-05,
+        "terrain_accuracy": 1.0,
+        "object_accuracy": 1.0,
+        "joint_accuracy": 1.0
+      }
+    },
+    {
+      "epoch": 22,
+      "learning_rate": 0.00025,
+      "train": {
+        "loss": 0.0016621500094238992,
+        "terrain_loss": 0.0014489845656182455,
+        "object_loss": 0.00021316545021693236,
+        "terrain_accuracy": 0.9998641304347826,
+        "object_accuracy": 1.0,
+        "joint_accuracy": 0.9998641304347826
+      },
+      "val": {
+        "loss": 0.0002812301780542602,
+        "terrain_loss": 0.00025311502682018105,
+        "object_loss": 2.81151505802974e-05,
+        "terrain_accuracy": 1.0,
+        "object_accuracy": 1.0,
+        "joint_accuracy": 1.0
+      }
+    },
+    {
+      "epoch": 23,
+      "learning_rate": 0.00025,
+      "train": {
+        "loss": 0.002244334853426351,
+        "terrain_loss": 0.0011593963403804767,
+        "object_loss": 0.0010849385134254893,
+        "terrain_accuracy": 0.9998414855072464,
+        "object_accuracy": 0.9997961956521739,
+        "joint_accuracy": 0.9996376811594203
+      },
+      "val": {
+        "loss": 5.7491850136590284e-05,
+        "terrain_loss": 3.430517065588493e-05,
+        "object_loss": 2.3186680029038395e-05,
+        "terrain_accuracy": 1.0,
+        "object_accuracy": 1.0,
+        "joint_accuracy": 1.0
+      }
+    },
+    {
+      "epoch": 24,
+      "learning_rate": 0.00025,
+      "train": {
+        "loss": 0.001923406793081296,
+        "terrain_loss": 0.0009496152668177366,
+        "object_loss": 0.0009737915053214554,
+        "terrain_accuracy": 0.9998188405797102,
+        "object_accuracy": 0.9998641304347826,
+        "joint_accuracy": 0.9996829710144928
+      },
+      "val": {
+        "loss": 9.320427029245142e-05,
+        "terrain_loss": 5.352371142404424e-05,
+        "object_loss": 3.968055891058664e-05,
+        "terrain_accuracy": 1.0,
+        "object_accuracy": 1.0,
+        "joint_accuracy": 1.0
+      }
+    },
+    {
+      "epoch": 25,
+      "learning_rate": 0.00025,
+      "train": {
+        "loss": 0.002127413786660907,
+        "terrain_loss": 0.0016374971936507475,
+        "object_loss": 0.0004899165785847826,
+        "terrain_accuracy": 0.9997735507246377,
+        "object_accuracy": 0.9999320652173913,
+        "joint_accuracy": 0.999705615942029
+      },
+      "val": {
+        "loss": 0.00021647511892007205,
+        "terrain_loss": 0.00019103949980226522,
+        "object_loss": 2.543561930761443e-05,
+        "terrain_accuracy": 1.0,
+        "object_accuracy": 1.0,
+        "joint_accuracy": 1.0
+      }
+    },
+    {
+      "epoch": 26,
+      "learning_rate": 0.00025,
+      "train": {
+        "loss": 0.0013637038169637917,
+        "terrain_loss": 0.0009996151768195821,
+        "object_loss": 0.0003640886207838354,
+        "terrain_accuracy": 0.9998414855072464,
+        "object_accuracy": 0.9999773550724638,
+        "joint_accuracy": 0.9998188405797102
+      },
+      "val": {
+        "loss": 6.568956326362609e-05,
+        "terrain_loss": 4.6788700922701065e-05,
+        "object_loss": 1.89008616818709e-05,
+        "terrain_accuracy": 1.0,
+        "object_accuracy": 1.0,
+        "joint_accuracy": 1.0
+      }
+    },
+    {
+      "epoch": 27,
+      "learning_rate": 0.00025,
+      "train": {
+        "loss": 0.0022027616614334125,
+        "terrain_loss": 0.0018155145869283276,
+        "object_loss": 0.0003872470806421969,
+        "terrain_accuracy": 0.9997961956521739,
+        "object_accuracy": 0.9999547101449275,
+        "joint_accuracy": 0.9997509057971015
+      },
+      "val": {
+        "loss": 0.00014428149261748067,
+        "terrain_loss": 0.000103266676402806,
+        "object_loss": 4.101481796512245e-05,
+        "terrain_accuracy": 1.0,
+        "object_accuracy": 1.0,
+        "joint_accuracy": 1.0
+      }
+    },
+    {
+      "epoch": 28,
+      "learning_rate": 0.000125,
+      "train": {
+        "loss": 0.0007341761963671424,
+        "terrain_loss": 0.0005664403778517726,
+        "object_loss": 0.00016773581931677956,
+        "terrain_accuracy": 0.9998867753623188,
+        "object_accuracy": 1.0,
+        "joint_accuracy": 0.9998867753623188
+      },
+      "val": {
+        "loss": 6.253095664272921e-05,
+        "terrain_loss": 4.547097982456604e-05,
+        "object_loss": 1.7059976623083155e-05,
+        "terrain_accuracy": 1.0,
+        "object_accuracy": 1.0,
+        "joint_accuracy": 1.0
+      }
+    },
+    {
+      "epoch": 29,
+      "learning_rate": 0.000125,
+      "train": {
+        "loss": 0.0013619728744505783,
+        "terrain_loss": 0.0009123741916087254,
+        "object_loss": 0.0004495986876503119,
+        "terrain_accuracy": 0.9999094202898551,
+        "object_accuracy": 0.9999320652173913,
+        "joint_accuracy": 0.9998414855072464
+      },
+      "val": {
+        "loss": 7.630207181901442e-05,
+        "terrain_loss": 6.337880614686899e-05,
+        "object_loss": 1.2923265171264285e-05,
+        "terrain_accuracy": 1.0,
+        "object_accuracy": 1.0,
+        "joint_accuracy": 1.0
+      }
+    },
+    {
+      "epoch": 30,
+      "learning_rate": 0.000125,
+      "train": {
+        "loss": 0.0013800831390983438,
+        "terrain_loss": 0.00126951878366948,
+        "object_loss": 0.00011056436340078252,
+        "terrain_accuracy": 0.9998188405797102,
+        "object_accuracy": 1.0,
+        "joint_accuracy": 0.9998188405797102
+      },
+      "val": {
+        "loss": 0.00020896948463168752,
+        "terrain_loss": 0.00019792289050478166,
+        "object_loss": 1.1046594205992364e-05,
+        "terrain_accuracy": 1.0,
+        "object_accuracy": 1.0,
+        "joint_accuracy": 1.0
+      }
+    },
+    {
+      "epoch": 31,
+      "learning_rate": 0.000125,
+      "train": {
+        "loss": 0.0017053490127538048,
+        "terrain_loss": 0.0016107951155298497,
+        "object_loss": 9.45538900956255e-05,
+        "terrain_accuracy": 0.9998188405797102,
+        "object_accuracy": 1.0,
+        "joint_accuracy": 0.9998188405797102
+      },
+      "val": {
+        "loss": 0.0002085030763882442,
+        "terrain_loss": 0.00019797494422401423,
+        "object_loss": 1.0528130730128159e-05,
+        "terrain_accuracy": 1.0,
+        "object_accuracy": 1.0,
+        "joint_accuracy": 1.0
+      }
+    },
+    {
+      "epoch": 32,
+      "learning_rate": 6.25e-05,
+      "train": {
+        "loss": 0.0018699870914713466,
+        "terrain_loss": 0.0017209667923769145,
+        "object_loss": 0.00014902028602934307,
+        "terrain_accuracy": 0.9997509057971015,
+        "object_accuracy": 0.9999773550724638,
+        "joint_accuracy": 0.9997282608695652
+      },
+      "val": {
+        "loss": 0.00019610206464953396,
+        "terrain_loss": 0.00018538806767353071,
+        "object_loss": 1.0713999390777578e-05,
+        "terrain_accuracy": 1.0,
+        "object_accuracy": 1.0,
+        "joint_accuracy": 1.0
+      }
+    },
+    {
+      "epoch": 33,
+      "learning_rate": 6.25e-05,
+      "train": {
+        "loss": 0.000860332206154809,
+        "terrain_loss": 0.0004427428398217223,
+        "object_loss": 0.00041758936548949745,
+        "terrain_accuracy": 0.9999094202898551,
+        "object_accuracy": 0.9999547101449275,
+        "joint_accuracy": 0.9998641304347826
+      },
+      "val": {
+        "loss": 8.802935276501069e-05,
+        "terrain_loss": 7.600767172677307e-05,
+        "object_loss": 1.2021681249134945e-05,
+        "terrain_accuracy": 1.0,
+        "object_accuracy": 1.0,
+        "joint_accuracy": 1.0
+      }
+    }
+  ],
+  "validation": {
+    "num_samples": 5520,
+    "terrain_accuracy": 1.0,
+    "object_accuracy": 1.0,
+    "joint_accuracy": 1.0,
+    "terrain_per_class": {
+      "floor": {
+        "support": 3522,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "wall": {
+        "support": 240,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "gap": {
+        "support": 240,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "bridge": {
+        "support": 1278,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "abyss": {
+        "support": 240,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      }
+    },
+    "object_per_class": {
+      "none": {
+        "support": 2640,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "chest_closed": {
+        "support": 360,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "chest_open": {
+        "support": 360,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "button_up": {
+        "support": 360,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "button_down": {
+        "support": 360,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "switch_off": {
+        "support": 360,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "switch_on": {
+        "support": 360,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "trap": {
+        "support": 360,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "npc": {
+        "support": 360,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      }
+    },
+    "terrain_confusion": [
+      [
+        3522,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        240,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        240,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        1278,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        240
+      ]
+    ],
+    "object_confusion": [
+      [
+        2640,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        360,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        360,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        360,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        360,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        360,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        360,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        360,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        360
+      ]
+    ]
+  },
+  "test": {
+    "num_samples": 5520,
+    "terrain_accuracy": 1.0,
+    "object_accuracy": 1.0,
+    "joint_accuracy": 1.0,
+    "terrain_per_class": {
+      "floor": {
+        "support": 3462,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "wall": {
+        "support": 240,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "gap": {
+        "support": 240,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "bridge": {
+        "support": 1338,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "abyss": {
+        "support": 240,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      }
+    },
+    "object_per_class": {
+      "none": {
+        "support": 2640,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "chest_closed": {
+        "support": 360,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "chest_open": {
+        "support": 360,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "button_up": {
+        "support": 360,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "button_down": {
+        "support": 360,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "switch_off": {
+        "support": 360,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "switch_on": {
+        "support": 360,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "trap": {
+        "support": 360,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "npc": {
+        "support": 360,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      }
+    },
+    "terrain_confusion": [
+      [
+        3462,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        240,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        240,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        1338,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        240
+      ]
+    ],
+    "object_confusion": [
+      [
+        2640,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        360,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        360,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        360,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        360,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        360,
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        360,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        360,
+        0
+      ],
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        360
+      ]
+    ]
+  }
+}
