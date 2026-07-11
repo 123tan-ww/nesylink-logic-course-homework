@@ -1,0 +1,21 @@
+name = "formalization"
+version = "0.1.0"
+defaultTargets = ["NesyLinkCore"]
+
+[[lean_lib]]
+name = "NesyLinkCore"
+
+[[lean_lib]]
+name = "Task1Formalization"
+
+[[lean_lib]]
+name = "Task2Formalization"
+
+[[lean_lib]]
+name = "Task3Formalization"
+
+[[lean_lib]]
+name = "Task4Formalization"
+
+[[lean_lib]]
+name = "Task5Formalization"
