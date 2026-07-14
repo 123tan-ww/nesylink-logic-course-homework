@@ -166,13 +166,13 @@ def isPassable (tile : Nat) : Bool :=
 /-! 判断一个位置是否不可走入（墙/陷阱/缺口）— 对应 safetyShield.filter -/
 def isBlocked (grid : Grid) (p : Position) : Prop :=
   match getTile grid p with
-  | some tile => tile = TILE_WALL ∨ tile = TILE_TRAP ∨ tile = TILE_GAP
+  | some tile => tile = TILE_WALL ∨ tile = TILE_TRAP ∨ tile = TILE_GAP ∨ tile = TILE_MONSTER ∨ tile = TILE_CHEST
   | none      => True
 
 /-! 可计算版本的 isBlocked -/
 def isBlockedB (grid : Grid) (p : Position) : Bool :=
   match getTile grid p with
-  | some tile => tile == TILE_WALL || tile == TILE_TRAP || tile == TILE_GAP
+  | some tile => tile == TILE_WALL || tile == TILE_TRAP || tile == TILE_GAP || tile == TILE_MONSTER || tile == TILE_CHEST
   | none      => true
 
 /-! inBounds 的可计算版本（Bool） -/
@@ -217,7 +217,7 @@ def shieldFilter (action : Action) (sym : SymbolicObs) (_belief : BeliefState) :
         if (nxt.1 < ROOM_W && nxt.2 < ROOM_H) then
           match getTile sym.grid nxt with
           | some tile =>
-            if (tile == TILE_WALL || tile == TILE_TRAP || tile == TILE_GAP) then
+            if (tile == TILE_WALL || tile == TILE_TRAP || tile == TILE_GAP || tile == TILE_MONSTER || tile == TILE_CHEST) then
               Action.wait
             else action
           | none => Action.wait
@@ -238,16 +238,30 @@ inductive Step : SymbolicObs → BeliefState → Action → SymbolicObs → Beli
       Step s b a
         { s with
           player := some (nextPosition (s.player.get hpos) a)
+          facing := match a with
+          | Action.up => Direction.up
+          | Action.down => Direction.down
+          | Action.left => Direction.left
+          | Action.right => Direction.right
+          | _ => Direction.down
         }
-        b
+        {b with step := b.step + 1}
 
   | moveBlocked
       {s : SymbolicObs} {b : BeliefState} {a : Action}
       (hpos : s.player.isSome)
       (hmove : isMoveAction a)
       (hblocked : ¬ isSafeMove s.grid (nextPosition (s.player.get hpos) a)) :
-      Step s b a s b  -- 被阻挡，状态不变
-
+      Step s b a
+      { s with
+          facing := match a with
+          | Action.up => Direction.up
+          | Action.down => Direction.down
+          | Action.left => Direction.left
+          | Action.right => Direction.right
+          | _ => Direction.down
+      }
+      {b with step := b.step + 1}
   | moveExit
       {s : SymbolicObs} {b : BeliefState} {a : Action}
       (hpos : s.player.isSome)
@@ -256,8 +270,14 @@ inductive Step : SymbolicObs → BeliefState → Action → SymbolicObs → Beli
       Step s b a
         { s with
           player := some (nextPosition (s.player.get hpos) a)
+          facing := match a with
+          | Action.up => Direction.up
+          | Action.down => Direction.down
+          | Action.left => Direction.left
+          | Action.right => Direction.right
+          | _ => Direction.down
         }
-        b
+        {b with step := b.step + 1}
       -- 换房间后实际 grid/objects 会变，具体关卡中再细化
 
   | attackMonster
@@ -269,13 +289,14 @@ inductive Step : SymbolicObs → BeliefState → Action → SymbolicObs → Beli
         { s with monsters := s.monsters.erase m }
         { b with
           killedMonsters := m :: b.killedMonsters
+          step := b.step + 1
         }
 
   | attackNoEffect
       {s : SymbolicObs} {b : BeliefState}
       (hpos : s.player.isSome)
       (hnoMonster : ∀ m ∈ s.monsters, ¬ adjacent (s.player.get hpos) m) :
-      Step s b Action.buttonA s b
+      Step s b Action.buttonA s {b with step := b.step + 1}
 
   | openChest
       {s : SymbolicObs} {b : BeliefState} {c : Position}
@@ -288,6 +309,7 @@ inductive Step : SymbolicObs → BeliefState → Action → SymbolicObs → Beli
           openedChests := c :: b.openedChests
           , hasKey := true
           , keys := b.keys + 1
+          , step := b.step + 1
         }
 
   | activateSwitch
@@ -295,16 +317,18 @@ inductive Step : SymbolicObs → BeliefState → Action → SymbolicObs → Beli
       (hpos : s.player.isSome)
       (hswitch : sw ∈ s.switches)
       (hadjacent : adjacent (s.player.get hpos) sw) :
-      Step s b Action.buttonA s b
+      Step s b Action.buttonA
+        { s with switches := s.switches.erase sw }
+        { b with step := b.step + 1 }
       -- switch 的效果取决于具体关卡（如改变桥状态）
 
   | wait
       {s : SymbolicObs} {b : BeliefState} :
-      Step s b Action.wait s b
+      Step s b Action.wait s {b with step := b.step + 1}
 
   | shield
       {s : SymbolicObs} {b : BeliefState} :
-      Step s b Action.buttonB s b
+      Step s b Action.buttonB s {b with step := b.step + 1}
 
 /-! 动作序列执行 `Exec s b plan s' b'` -/
 inductive Exec : SymbolicObs → BeliefState → List Action → SymbolicObs → BeliefState → Prop where
@@ -395,24 +419,28 @@ theorem shield_prevents_blocked
                     simp [htile] at hnotblocked
                   exact False.elim this
               | some tile =>
-                  have hstep : (if tile = TILE_WALL ∨ tile = TILE_TRAP ∨ tile = TILE_GAP then Action.wait else Action.up) = Action.wait := by
+                  have hstep : (if tile = TILE_WALL ∨ tile = TILE_TRAP ∨ tile = TILE_GAP ∨ tile = TILE_MONSTER ∨ tile = TILE_CHEST then Action.wait else Action.up) = Action.wait := by
                     simpa [hexit, hbound, htile] using h
-                  have hblocked : tile = TILE_WALL ∨ tile = TILE_TRAP ∨ tile = TILE_GAP := by
+                  have hblocked : tile = TILE_WALL ∨ tile = TILE_TRAP ∨ tile = TILE_GAP ∨ tile = TILE_MONSTER ∨ tile = TILE_CHEST := by
                     by_cases hwall : tile = TILE_WALL
                     · exact Or.inl hwall
                     · by_cases htrap : tile = TILE_TRAP
                       · exact Or.inr (Or.inl htrap)
                       · by_cases hgap : tile = TILE_GAP
-                        · exact Or.inr (Or.inr hgap)
-                        · exfalso
-                          have : Action.up = Action.wait := by
-                            simpa [hwall, htrap, hgap] using hstep
-                          exact h_not_wait this
+                        · exact Or.inr (Or.inr (Or.inl hgap))
+                        · by_cases hmon : tile = TILE_MONSTER
+                          · exact Or.inr (Or.inr (Or.inr (Or.inl hmon)))
+                          · by_cases hchest : tile = TILE_CHEST
+                            · exact Or.inr (Or.inr (Or.inr (Or.inr hchest)))
+                            · exfalso
+                              have : Action.up = Action.wait := by
+                                simpa [hwall, htrap, hgap, hmon, hchest] using hstep
+                              exact h_not_wait this
                   intro hsafe
                   rcases hsafe with ⟨_, hnotblocked⟩
                   have hbad : isBlocked grid (nextPosition pos Action.up) := by
                     unfold isBlocked
-                    simp [htile, hblocked]
+                    simp [htile,hblocked]
                   exact hnotblocked hbad
             · intro hsafe
               rcases hsafe with ⟨hin, _⟩
@@ -437,19 +465,23 @@ theorem shield_prevents_blocked
                     simp [htile] at hnotblocked
                   exact False.elim this
               | some tile =>
-                  have hstep : (if tile = TILE_WALL ∨ tile = TILE_TRAP ∨ tile = TILE_GAP then Action.wait else Action.down) = Action.wait := by
+                  have hstep : (if tile = TILE_WALL ∨ tile = TILE_TRAP ∨ tile = TILE_GAP ∨ tile = TILE_MONSTER ∨ tile = TILE_CHEST then Action.wait else Action.down) = Action.wait := by
                     simpa [hexit, hbound, htile] using h
-                  have hblocked : tile = TILE_WALL ∨ tile = TILE_TRAP ∨ tile = TILE_GAP := by
+                  have hblocked : tile = TILE_WALL ∨ tile = TILE_TRAP ∨ tile = TILE_GAP ∨ tile = TILE_MONSTER ∨ tile = TILE_CHEST := by
                     by_cases hwall : tile = TILE_WALL
                     · exact Or.inl hwall
                     · by_cases htrap : tile = TILE_TRAP
                       · exact Or.inr (Or.inl htrap)
                       · by_cases hgap : tile = TILE_GAP
-                        · exact Or.inr (Or.inr hgap)
-                        · exfalso
-                          have : Action.down = Action.wait := by
-                            simpa [hwall, htrap, hgap] using hstep
-                          exact h_not_wait this
+                        · exact Or.inr (Or.inr (Or.inl hgap))
+                        · by_cases hmon : tile = TILE_MONSTER
+                          · exact Or.inr (Or.inr (Or.inr (Or.inl hmon)))
+                          · by_cases hchest : tile = TILE_CHEST
+                            · exact Or.inr (Or.inr (Or.inr (Or.inr hchest)))
+                            · exfalso
+                              have : Action.down = Action.wait := by
+                                simpa [hwall, htrap, hgap, hmon, hchest] using hstep
+                              exact h_not_wait this
                   intro hsafe
                   rcases hsafe with ⟨_, hnotblocked⟩
                   have hbad : isBlocked grid (nextPosition pos Action.down) := by
@@ -479,19 +511,35 @@ theorem shield_prevents_blocked
                     simp [htile] at hnotblocked
                   exact False.elim this
               | some tile =>
-                  have hstep : (if tile = TILE_WALL ∨ tile = TILE_TRAP ∨ tile = TILE_GAP then Action.wait else Action.left) = Action.wait := by
-                    simpa [hexit, hbound, htile] using h
-                  have hblocked : tile = TILE_WALL ∨ tile = TILE_TRAP ∨ tile = TILE_GAP := by
+                  have hstep : (if tile = TILE_WALL ∨ tile = TILE_TRAP ∨ tile = TILE_GAP ∨ tile = TILE_MONSTER ∨ tile = TILE_CHEST then Action.wait else Action.left) = Action.wait := by
+                    simp [shieldFilter, hexit, hbound, htile] at h
+                    by_cases hwall : tile = TILE_WALL
+                    · rw[hwall];simp
+                    · by_cases htrap : tile = TILE_TRAP
+                      · rw[htrap];simp
+                      · by_cases hgap : tile = TILE_GAP
+                        · rw[hgap];simp
+                        · by_cases hmon : tile = TILE_MONSTER
+                          · rw[hmon];simp
+                          · by_cases hchest : tile = TILE_CHEST
+                            · rw[hchest];simp
+                            · have hcon := h hwall htrap hgap hmon
+                              contradiction
+                  have hblocked : tile = TILE_WALL ∨ tile = TILE_TRAP ∨ tile = TILE_GAP ∨ tile = TILE_MONSTER ∨ tile = TILE_CHEST := by
                     by_cases hwall : tile = TILE_WALL
                     · exact Or.inl hwall
                     · by_cases htrap : tile = TILE_TRAP
                       · exact Or.inr (Or.inl htrap)
                       · by_cases hgap : tile = TILE_GAP
-                        · exact Or.inr (Or.inr hgap)
-                        · exfalso
-                          have : Action.left = Action.wait := by
-                            simpa [hwall, htrap, hgap] using hstep
-                          exact h_not_wait this
+                        · exact Or.inr (Or.inr (Or.inl hgap))
+                        · by_cases hmon : tile = TILE_MONSTER
+                          · exact Or.inr (Or.inr (Or.inr (Or.inl hmon)))
+                          · by_cases hchest : tile = TILE_CHEST
+                            · exact Or.inr (Or.inr (Or.inr (Or.inr hchest)))
+                            · exfalso
+                              have : Action.left = Action.wait := by
+                                simpa [hwall, htrap, hgap, hmon, hchest] using hstep
+                              exact h_not_wait this
                   intro hsafe
                   rcases hsafe with ⟨_, hnotblocked⟩
                   have hbad : isBlocked grid (nextPosition pos Action.left) := by
@@ -521,19 +569,23 @@ theorem shield_prevents_blocked
                     simp [htile] at hnotblocked
                   exact False.elim this
               | some tile =>
-                  have hstep : (if tile = TILE_WALL ∨ tile = TILE_TRAP ∨ tile = TILE_GAP then Action.wait else Action.right) = Action.wait := by
+                  have hstep : (if tile = TILE_WALL ∨ tile = TILE_TRAP ∨ tile = TILE_GAP ∨ tile = TILE_MONSTER ∨ tile = TILE_CHEST then Action.wait else Action.right) = Action.wait := by
                     simpa [hexit, hbound, htile] using h
-                  have hblocked : tile = TILE_WALL ∨ tile = TILE_TRAP ∨ tile = TILE_GAP := by
+                  have hblocked : tile = TILE_WALL ∨ tile = TILE_TRAP ∨ tile = TILE_GAP ∨ tile = TILE_MONSTER ∨ tile = TILE_CHEST := by
                     by_cases hwall : tile = TILE_WALL
                     · exact Or.inl hwall
                     · by_cases htrap : tile = TILE_TRAP
                       · exact Or.inr (Or.inl htrap)
                       · by_cases hgap : tile = TILE_GAP
-                        · exact Or.inr (Or.inr hgap)
-                        · exfalso
-                          have : Action.right = Action.wait := by
-                            simpa [hwall, htrap, hgap] using hstep
-                          exact h_not_wait this
+                        · exact Or.inr (Or.inr (Or.inl hgap))
+                        · by_cases hmon : tile = TILE_MONSTER
+                          · exact Or.inr (Or.inr (Or.inr (Or.inl hmon)))
+                          · by_cases hchest : tile = TILE_CHEST
+                            · exact Or.inr (Or.inr (Or.inr (Or.inr hchest)))
+                            · exfalso
+                              have : Action.right = Action.wait := by
+                                simpa [hwall, htrap, hgap, hmon, hchest] using hstep
+                              exact h_not_wait this
                   intro hsafe
                   rcases hsafe with ⟨_, hnotblocked⟩
                   have hbad : isBlocked grid (nextPosition pos Action.right) := by
@@ -543,8 +595,11 @@ theorem shield_prevents_blocked
             · intro hsafe
               rcases hsafe with ⟨hin, _⟩
               exact hbound hin
-  | buttonA | buttonB =>
+  | buttonA =>
       simp [shieldFilter] at h
+  | buttonB =>
+      simp [shieldFilter] at h
+
 
 
 /-! 安全移动的后继状态中，玩家仍在 bounds 内 -/
