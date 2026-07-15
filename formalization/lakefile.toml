@@ -19,3 +19,6 @@ name = "Task4Formalization"
 
 [[lean_lib]]
 name = "Task5Formalization"
+
+[[lean_lib]]
+name = "Task5FormalizationB"
