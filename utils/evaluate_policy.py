@@ -130,6 +130,7 @@ class EpisodeResult:
     obs_variant: str
     seed: int
     steps: int
+    actions: list[int]
     total_reward: float
     terminated: bool
     truncated: bool
@@ -850,6 +851,7 @@ def run_episode(
     terminated = False
     truncated = False
     steps = 0
+    actions: list[int] = []
     policy_info = build_policy_info(
         info_mode=info_mode,
         raw_info=raw_info,
@@ -862,6 +864,7 @@ def run_episode(
             action = call_policy(policy, obs, policy_info)
             if not env.action_space.contains(action):
                 raise ValueError(f"policy returned invalid action {action!r} for {task_id}")
+            actions.append(int(action))
             raw_obs, reward, terminated, truncated, raw_info = env.step(action)
             obs = apply_obs_variant(raw_obs, obs_variant, info=raw_info, env=env)
             steps += 1
@@ -887,6 +890,7 @@ def run_episode(
         obs_variant=obs_variant,
         seed=seed,
         steps=steps,
+        actions=actions,
         total_reward=total_reward,
         terminated=bool(terminated),
         truncated=bool(truncated),

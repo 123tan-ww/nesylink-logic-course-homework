@@ -280,6 +280,16 @@ inductive Step : SymbolicObs → BeliefState → Action → SymbolicObs → Beli
         {b with step := b.step + 1}
       -- 换房间后实际 grid/objects 会变，具体关卡中再细化
 
+  | roomTransition
+      {s s' : SymbolicObs} {b : BeliefState} {a : Action}
+      (hpos : s.player.isSome)
+      (hmove : isMoveAction a)
+      (hescape : isExitLeavingAction (s.player.get hpos) a s.exits)
+      (hplayer_some : s'.player.isSome)
+      (hgrid_diff : s'.grid ≠ s.grid)
+      (hsafe_dest : isSafeMoveB s'.grid (s'.player.get hplayer_some) = true) :
+      Step s b a s' {b with step := b.step + 1}
+
   | attackMonster
       {s : SymbolicObs} {b : BeliefState} {m : Position}
       (hpos : s.player.isSome)
@@ -434,7 +444,7 @@ theorem shield_prevents_blocked
                             · exact Or.inr (Or.inr (Or.inr (Or.inr hchest)))
                             · exfalso
                               have : Action.up = Action.wait := by
-                                simpa [hwall, htrap, hgap, hmon, hchest] using hstep
+                                simp [hwall, htrap, hgap, hmon, hchest] at hstep
                               exact h_not_wait this
                   intro hsafe
                   rcases hsafe with ⟨_, hnotblocked⟩
@@ -480,7 +490,7 @@ theorem shield_prevents_blocked
                             · exact Or.inr (Or.inr (Or.inr (Or.inr hchest)))
                             · exfalso
                               have : Action.down = Action.wait := by
-                                simpa [hwall, htrap, hgap, hmon, hchest] using hstep
+                                simp [hwall, htrap, hgap, hmon, hchest] at hstep
                               exact h_not_wait this
                   intro hsafe
                   rcases hsafe with ⟨_, hnotblocked⟩
@@ -512,7 +522,7 @@ theorem shield_prevents_blocked
                   exact False.elim this
               | some tile =>
                   have hstep : (if tile = TILE_WALL ∨ tile = TILE_TRAP ∨ tile = TILE_GAP ∨ tile = TILE_MONSTER ∨ tile = TILE_CHEST then Action.wait else Action.left) = Action.wait := by
-                    simp [shieldFilter, hexit, hbound, htile] at h
+                    simp [hexit, hbound, htile] at h
                     by_cases hwall : tile = TILE_WALL
                     · rw[hwall];simp
                     · by_cases htrap : tile = TILE_TRAP
@@ -538,7 +548,7 @@ theorem shield_prevents_blocked
                             · exact Or.inr (Or.inr (Or.inr (Or.inr hchest)))
                             · exfalso
                               have : Action.left = Action.wait := by
-                                simpa [hwall, htrap, hgap, hmon, hchest] using hstep
+                                simp [hwall, htrap, hgap, hmon, hchest] at hstep
                               exact h_not_wait this
                   intro hsafe
                   rcases hsafe with ⟨_, hnotblocked⟩
@@ -584,7 +594,7 @@ theorem shield_prevents_blocked
                             · exact Or.inr (Or.inr (Or.inr (Or.inr hchest)))
                             · exfalso
                               have : Action.right = Action.wait := by
-                                simpa [hwall, htrap, hgap, hmon, hchest] using hstep
+                                simp [hwall, htrap, hgap, hmon, hchest] at hstep
                               exact h_not_wait this
                   intro hsafe
                   rcases hsafe with ⟨_, hnotblocked⟩
@@ -631,6 +641,18 @@ theorem safe_move_preserves_inBounds
     simp [isMoveAction] at hmove
   | shield =>
     simp [isMoveAction] at hmove
+  | roomTransition hpos' hmove' hescape' hplayer_some' hgrid_diff' hsafe_dest' =>
+    have h_in_bounds : inBounds (t.player.get hplayer_some') := by
+      unfold isSafeMoveB at hsafe_dest'
+      rw [Bool.and_eq_true] at hsafe_dest'
+      rcases hsafe_dest' with ⟨hin, _⟩
+      unfold inBoundsB at hin
+      rw [Bool.and_eq_true] at hin
+      rcases hin with ⟨hx, hy⟩
+      have hx' : (t.player.get hplayer_some').1 < ROOM_W := of_decide_eq_true hx
+      have hy' : (t.player.get hplayer_some').2 < ROOM_H := of_decide_eq_true hy
+      exact ⟨hx', hy'⟩
+    exact ⟨hplayer_some', h_in_bounds⟩
 
 /-! 合法移动不会走入墙中 — 核心安全性质 -/
 theorem safe_move_not_into_wall
@@ -669,6 +691,34 @@ theorem safe_move_not_into_wall
       have h_not_wall : tile ≠ TILE_WALL := by
         intro h_eq; apply hnotblocked; rw [hgrid]; exact Or.inl h_eq
       simpa [hgrid] using h_not_wall
+  | roomTransition hpos' hmove' hescape' hplayer_some' hgrid_diff' hsafe_dest' =>
+    intro htpos
+    have h_safe_eq : isSafeMoveB t.grid (t.player.get htpos) = true := by
+      have hsame : t.player.get hplayer_some' = t.player.get htpos := by simp
+      simpa [hsame] using hsafe_dest'
+    unfold isSafeMoveB at h_safe_eq
+    rw [Bool.and_eq_true] at h_safe_eq
+    rcases h_safe_eq with ⟨_, hnot⟩
+    -- hnot : (!(isBlockedB t.grid (t.player.get htpos))) = true
+    have h_not_blocked : isBlockedB t.grid (t.player.get htpos) = false := by
+      have h_not_true : ¬ (isBlockedB t.grid (t.player.get htpos) = true) := by
+        intro htrue
+        have : (!(isBlockedB t.grid (t.player.get htpos))) = false := by simp [htrue]
+        rw [this] at hnot
+        simp at hnot
+      have hcases : ∀ (b : Bool), b = false ∨ b = true := by
+        intro b; cases b <;> simp
+      rcases hcases (isBlockedB t.grid (t.player.get htpos)) with (hfalse | htrue)
+      · exact hfalse
+      · exfalso; exact h_not_true htrue
+    cases hg : getTile t.grid (t.player.get htpos) with
+    | none => trivial
+    | some tile =>
+      unfold isBlockedB at h_not_blocked
+      rw [hg] at h_not_blocked
+      simp at h_not_blocked
+      -- h_not_blocked : (((¬tile = TILE_WALL ∧ ¬tile = TILE_TRAP) ∧ ¬tile = TILE_GAP) ∧ ¬tile = TILE_MONSTER) ∧ ¬tile = TILE_CHEST
+      exact h_not_blocked.1.1.1.1
   | _ =>
     intro htpos
     trivial
@@ -723,6 +773,33 @@ theorem safe_move_not_into_trap
       have h_not_trap : tile ≠ TILE_TRAP := by
         intro h_eq; apply hnotblocked; rw [hgrid]; exact Or.inr (Or.inl h_eq)
       simpa [hgrid] using h_not_trap
+  | roomTransition hpos' hmove' hescape' hplayer_some' hgrid_diff' hsafe_dest' =>
+    intro htpos
+    have h_safe_eq : isSafeMoveB t.grid (t.player.get htpos) = true := by
+      have hsame : t.player.get hplayer_some' = t.player.get htpos := by simp
+      simpa [hsame] using hsafe_dest'
+    unfold isSafeMoveB at h_safe_eq
+    rw [Bool.and_eq_true] at h_safe_eq
+    rcases h_safe_eq with ⟨_, hnot⟩
+    have h_not_blocked : isBlockedB t.grid (t.player.get htpos) = false := by
+      have h_not_true : ¬ (isBlockedB t.grid (t.player.get htpos) = true) := by
+        intro htrue
+        have : (!(isBlockedB t.grid (t.player.get htpos))) = false := by simp [htrue]
+        rw [this] at hnot
+        simp at hnot
+      have hcases : ∀ (b : Bool), b = false ∨ b = true := by
+        intro b; cases b <;> simp
+      rcases hcases (isBlockedB t.grid (t.player.get htpos)) with (hfalse | htrue)
+      · exact hfalse
+      · exfalso; exact h_not_true htrue
+    cases hg : getTile t.grid (t.player.get htpos) with
+    | none => trivial
+    | some tile =>
+      unfold isBlockedB at h_not_blocked
+      rw [hg] at h_not_blocked
+      simp at h_not_blocked
+      -- h_not_blocked : (((¬tile = TILE_WALL ∧ ¬tile = TILE_TRAP) ∧ ¬tile = TILE_GAP) ∧ ¬tile = TILE_MONSTER) ∧ ¬tile = TILE_CHEST
+      exact h_not_blocked.1.1.1.2
   | _ =>
     intro htpos
     trivial
@@ -821,7 +898,7 @@ def subgoalPriority (sg : SubgoalKind) : Nat :=
 theorem subgoal_priority_sound
     (sym : SymbolicObs) (belief : BeliefState)
     (sg1 sg2 : Subgoal)
-    (hprio : subgoalPriority sg1.kind < subgoalPriority sg2.kind)
+    (_ : subgoalPriority sg1.kind < subgoalPriority sg2.kind)
     (hreachable : subgoalReachable sym belief sg1) :
     ¬ (subgoalReachable sym belief sg2 ∧ ¬ subgoalReachable sym belief sg1) := by
   intro h
