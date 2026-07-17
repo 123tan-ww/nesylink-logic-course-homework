@@ -280,6 +280,16 @@ inductive Step : SymbolicObs → BeliefState → Action → SymbolicObs → Beli
         {b with step := b.step + 1}
       -- 换房间后实际 grid/objects 会变，具体关卡中再细化
 
+  | roomTransition
+      {s s' : SymbolicObs} {b : BeliefState} {a : Action}
+      (hpos : s.player.isSome)
+      (hmove : isMoveAction a)
+      (hescape : isExitLeavingAction (s.player.get hpos) a s.exits)
+      (hplayer_some : s'.player.isSome)
+      (hgrid_diff : s'.grid ≠ s.grid)
+      (hsafe_dest : isSafeMoveB s'.grid (s'.player.get hplayer_some) = true) :
+      Step s b a s' {b with step := b.step + 1}
+
   | attackMonster
       {s : SymbolicObs} {b : BeliefState} {m : Position}
       (hpos : s.player.isSome)
@@ -329,6 +339,14 @@ inductive Step : SymbolicObs → BeliefState → Action → SymbolicObs → Beli
   | shield
       {s : SymbolicObs} {b : BeliefState} :
       Step s b Action.buttonB s {b with step := b.step + 1}
+
+  | pressButton
+      {s : SymbolicObs} {b : BeliefState} {btn : Position}
+      (hpos : s.player.isSome)
+      (hbutton : btn ∈ s.buttons)
+      (hat : s.player.get hpos = btn) :
+      Step s b Action.wait s
+        { b with pressedButtons := btn :: b.pressedButtons, step := b.step + 1 }
 
 /-! 动作序列执行 `Exec s b plan s' b'` -/
 inductive Exec : SymbolicObs → BeliefState → List Action → SymbolicObs → BeliefState → Prop where
@@ -434,7 +452,7 @@ theorem shield_prevents_blocked
                             · exact Or.inr (Or.inr (Or.inr (Or.inr hchest)))
                             · exfalso
                               have : Action.up = Action.wait := by
-                                simpa [hwall, htrap, hgap, hmon, hchest] using hstep
+                                simp [hwall, htrap, hgap, hmon, hchest] at hstep
                               exact h_not_wait this
                   intro hsafe
                   rcases hsafe with ⟨_, hnotblocked⟩
@@ -480,7 +498,7 @@ theorem shield_prevents_blocked
                             · exact Or.inr (Or.inr (Or.inr (Or.inr hchest)))
                             · exfalso
                               have : Action.down = Action.wait := by
-                                simpa [hwall, htrap, hgap, hmon, hchest] using hstep
+                                simp [hwall, htrap, hgap, hmon, hchest] at hstep
                               exact h_not_wait this
                   intro hsafe
                   rcases hsafe with ⟨_, hnotblocked⟩
@@ -512,7 +530,7 @@ theorem shield_prevents_blocked
                   exact False.elim this
               | some tile =>
                   have hstep : (if tile = TILE_WALL ∨ tile = TILE_TRAP ∨ tile = TILE_GAP ∨ tile = TILE_MONSTER ∨ tile = TILE_CHEST then Action.wait else Action.left) = Action.wait := by
-                    simp [shieldFilter, hexit, hbound, htile] at h
+                    simp [hexit, hbound, htile] at h
                     by_cases hwall : tile = TILE_WALL
                     · rw[hwall];simp
                     · by_cases htrap : tile = TILE_TRAP
@@ -538,7 +556,7 @@ theorem shield_prevents_blocked
                             · exact Or.inr (Or.inr (Or.inr (Or.inr hchest)))
                             · exfalso
                               have : Action.left = Action.wait := by
-                                simpa [hwall, htrap, hgap, hmon, hchest] using hstep
+                                simp [hwall, htrap, hgap, hmon, hchest] at hstep
                               exact h_not_wait this
                   intro hsafe
                   rcases hsafe with ⟨_, hnotblocked⟩
@@ -584,7 +602,7 @@ theorem shield_prevents_blocked
                             · exact Or.inr (Or.inr (Or.inr (Or.inr hchest)))
                             · exfalso
                               have : Action.right = Action.wait := by
-                                simpa [hwall, htrap, hgap, hmon, hchest] using hstep
+                                simp [hwall, htrap, hgap, hmon, hchest] at hstep
                               exact h_not_wait this
                   intro hsafe
                   rcases hsafe with ⟨_, hnotblocked⟩
@@ -631,6 +649,20 @@ theorem safe_move_preserves_inBounds
     simp [isMoveAction] at hmove
   | shield =>
     simp [isMoveAction] at hmove
+  | pressButton hpos' hbutton' hat' =>
+    simp [isMoveAction] at hmove
+  | roomTransition hpos' hmove' hescape' hplayer_some' hgrid_diff' hsafe_dest' =>
+    have h_in_bounds : inBounds (t.player.get hplayer_some') := by
+      unfold isSafeMoveB at hsafe_dest'
+      rw [Bool.and_eq_true] at hsafe_dest'
+      rcases hsafe_dest' with ⟨hin, _⟩
+      unfold inBoundsB at hin
+      rw [Bool.and_eq_true] at hin
+      rcases hin with ⟨hx, hy⟩
+      have hx' : (t.player.get hplayer_some').1 < ROOM_W := of_decide_eq_true hx
+      have hy' : (t.player.get hplayer_some').2 < ROOM_H := of_decide_eq_true hy
+      exact ⟨hx', hy'⟩
+    exact ⟨hplayer_some', h_in_bounds⟩
 
 /-! 合法移动不会走入墙中 — 核心安全性质 -/
 theorem safe_move_not_into_wall
@@ -669,6 +701,36 @@ theorem safe_move_not_into_wall
       have h_not_wall : tile ≠ TILE_WALL := by
         intro h_eq; apply hnotblocked; rw [hgrid]; exact Or.inl h_eq
       simpa [hgrid] using h_not_wall
+  | roomTransition hpos' hmove' hescape' hplayer_some' hgrid_diff' hsafe_dest' =>
+    intro htpos
+    have h_safe_eq : isSafeMoveB t.grid (t.player.get htpos) = true := by
+      have hsame : t.player.get hplayer_some' = t.player.get htpos := by simp
+      simpa [hsame] using hsafe_dest'
+    unfold isSafeMoveB at h_safe_eq
+    rw [Bool.and_eq_true] at h_safe_eq
+    rcases h_safe_eq with ⟨_, hnot⟩
+    -- hnot : (!(isBlockedB t.grid (t.player.get htpos))) = true
+    have h_not_blocked : isBlockedB t.grid (t.player.get htpos) = false := by
+      have h_not_true : ¬ (isBlockedB t.grid (t.player.get htpos) = true) := by
+        intro htrue
+        have : (!(isBlockedB t.grid (t.player.get htpos))) = false := by simp [htrue]
+        rw [this] at hnot
+        simp at hnot
+      have hcases : ∀ (b : Bool), b = false ∨ b = true := by
+        intro b; cases b <;> simp
+      rcases hcases (isBlockedB t.grid (t.player.get htpos)) with (hfalse | htrue)
+      · exact hfalse
+      · exfalso; exact h_not_true htrue
+    cases hg : getTile t.grid (t.player.get htpos) with
+    | none => trivial
+    | some tile =>
+      unfold isBlockedB at h_not_blocked
+      rw [hg] at h_not_blocked
+      simp at h_not_blocked
+      -- h_not_blocked : (((¬tile = TILE_WALL ∧ ¬tile = TILE_TRAP) ∧ ¬tile = TILE_GAP) ∧ ¬tile = TILE_MONSTER) ∧ ¬tile = TILE_CHEST
+      exact h_not_blocked.1.1.1.1
+  | pressButton hpos' hbutton' hat' =>
+    intro htpos; trivial
   | _ =>
     intro htpos
     trivial
@@ -723,6 +785,35 @@ theorem safe_move_not_into_trap
       have h_not_trap : tile ≠ TILE_TRAP := by
         intro h_eq; apply hnotblocked; rw [hgrid]; exact Or.inr (Or.inl h_eq)
       simpa [hgrid] using h_not_trap
+  | roomTransition hpos' hmove' hescape' hplayer_some' hgrid_diff' hsafe_dest' =>
+    intro htpos
+    have h_safe_eq : isSafeMoveB t.grid (t.player.get htpos) = true := by
+      have hsame : t.player.get hplayer_some' = t.player.get htpos := by simp
+      simpa [hsame] using hsafe_dest'
+    unfold isSafeMoveB at h_safe_eq
+    rw [Bool.and_eq_true] at h_safe_eq
+    rcases h_safe_eq with ⟨_, hnot⟩
+    have h_not_blocked : isBlockedB t.grid (t.player.get htpos) = false := by
+      have h_not_true : ¬ (isBlockedB t.grid (t.player.get htpos) = true) := by
+        intro htrue
+        have : (!(isBlockedB t.grid (t.player.get htpos))) = false := by simp [htrue]
+        rw [this] at hnot
+        simp at hnot
+      have hcases : ∀ (b : Bool), b = false ∨ b = true := by
+        intro b; cases b <;> simp
+      rcases hcases (isBlockedB t.grid (t.player.get htpos)) with (hfalse | htrue)
+      · exact hfalse
+      · exfalso; exact h_not_true htrue
+    cases hg : getTile t.grid (t.player.get htpos) with
+    | none => trivial
+    | some tile =>
+      unfold isBlockedB at h_not_blocked
+      rw [hg] at h_not_blocked
+      simp at h_not_blocked
+      -- h_not_blocked : (((¬tile = TILE_WALL ∧ ¬tile = TILE_TRAP) ∧ ¬tile = TILE_GAP) ∧ ¬tile = TILE_MONSTER) ∧ ¬tile = TILE_CHEST
+      exact h_not_blocked.1.1.1.2
+  | pressButton hpos' hbutton' hat' =>
+    intro htpos; trivial
   | _ =>
     intro htpos
     trivial
@@ -821,7 +912,7 @@ def subgoalPriority (sg : SubgoalKind) : Nat :=
 theorem subgoal_priority_sound
     (sym : SymbolicObs) (belief : BeliefState)
     (sg1 sg2 : Subgoal)
-    (hprio : subgoalPriority sg1.kind < subgoalPriority sg2.kind)
+    (_ : subgoalPriority sg1.kind < subgoalPriority sg2.kind)
     (hreachable : subgoalReachable sym belief sg1) :
     ¬ (subgoalReachable sym belief sg2 ∧ ¬ subgoalReachable sym belief sg1) := by
   intro h
@@ -1016,3 +1107,106 @@ theorem bfs_path_actions_are_safe
   simpa [bfsReachable] using h
 
 end NesyLinkCore
+
+--  由于A*是启发式，lean代码不可能直接编码优先级序列，仅作参考
+
+-- /- ================================================================
+--    14. 具体策略规范 — 对应 Agent 决策逻辑的逻辑模型
+--    ================================================================
+
+--    Agent 决策循环（agent.py Policy.act）可以抽象为：
+--      1. 感知: obs → 符号状态 sym（形式化中假设已给定）
+--      2. 信念更新: sym + info → belief（形式化中假设已给定）
+--      3. 子目标选择 + 路径规划 + 安全过滤 → 输出动作列表
+
+--    它按照优先级规则产生动作序列，不依赖 A* 实现细节。
+--    ================================================================ -/
+-- open Classical
+
+-- /-! adjacent 的 Bool 版本（用于可计算策略） -/
+-- def adjacentB (a b : Position) : Bool :=
+--   (a.1 + 1 == b.1 && a.2 == b.2) ||
+--   (a.1 == b.1 + 1 && a.2 == b.2) ||
+--   (a.1 == b.1 && a.2 + 1 == b.2) ||
+--   (a.1 == b.1 && a.2 == b.2 + 1)
+
+-- /-! 辅助 Bool 谓词：附近有怪物且持剑（对应 agent.py combat_action_override） -/
+-- def adjacentMonsterWithSword (sym : SymbolicObs) (b : BeliefState) : Bool :=
+--   match sym.player with
+--   | none => false
+--   | some pos =>
+--     b.hasSword && sym.monsters.foldl (λ acc m => acc || adjacentB pos m) false
+
+-- /-! 辅助 Bool 谓词：有未打开的宝箱（对应 agent.py find_chest 子目标） -/
+-- def hasUnopenedChest (sym : SymbolicObs) (b : BeliefState) : Bool :=
+--   sym.chests.foldl (λ acc c => acc || !(b.openedChests.contains c)) false
+
+-- /-! 辅助 Bool 谓词：有可用出口（对应 agent.py go_exit 子目标） -/
+-- def hasUsableExit (sym : SymbolicObs) : Bool :=
+--   !sym.exits.isEmpty
+
+-- /-! 策略函数：根据当前符号状态和信念，返回动作序列。
+--     对应 Python 中 SymbolicPlanner.next_subgoal + OptionController.build_actions 的组合。
+--     规则顺序（优先级从高到低）：
+--     1. 附近有怪物且持剑 → 攻击（转向 + buttonA）
+--     2. 有未开宝箱 → 开箱（buttonA，假设已在相邻格）
+--     3. 有可用出口 → 走向出口（抽象为单个方向动作）
+--     4. 否则 → 等待 -
+--     仅代表原代码的倾向性 -/
+-- def strategyOutput (sym : SymbolicObs) (b : BeliefState) : List Action :=
+--   if adjacentMonsterWithSword sym b then [Action.left, Action.buttonA]
+--   else if hasUnopenedChest sym b then [Action.buttonA]
+--   else if (∃ info ∈ sym.exit_infos, info.exit_type == "locked_key" && b.hasKey) then [Action.right]  -- 锁门优先
+--   else if hasUsableExit sym then [Action.right]
+--   else [Action.wait]
+
+-- /-! 安全性引理（框架层）：策略只输出合法动作类型，不输出无效动作。
+--     具体的 tile 级安全（不走墙/陷阱）需要房间 grid 信息，在 Task5 中证明。 -/
+-- theorem strategyOutput_valid_actions (sym : SymbolicObs) (b : BeliefState) :
+--     ∀ (a : Action), a ∈ strategyOutput sym b → a ∈ [Action.left, Action.buttonA, Action.right, Action.wait] := by
+--   intro a ha
+--   unfold strategyOutput at ha
+--   by_cases h1 : adjacentMonsterWithSword sym b
+--   · rw [if_pos h1] at ha; simp at ha; rcases ha with (rfl|rfl) <;> simp
+--   · rw [if_neg h1] at ha
+--     by_cases h2 : hasUnopenedChest sym b
+--     · rw [if_pos h2] at ha; simp at ha; rcases ha with (rfl) <;> simp
+--     · rw [if_neg h2] at ha
+--       by_cases h3 : hasUsableExit sym
+--       · rw [if_pos h3] at ha; simp at ha; rcases ha with (rfl) <;> simp
+--       · rw [if_neg h3] at ha; simp at ha; rcases ha with (rfl) <;> simp
+
+-- /-! 策略输出的动作序列非空 -/
+-- theorem strategyOutput_nonempty (sym : SymbolicObs) (b : BeliefState) :
+--     strategyOutput sym b ≠ [] := by
+--   unfold strategyOutput
+--   by_cases h1 : adjacentMonsterWithSword sym b
+--   · rw [if_pos h1]; simp
+--   · rw [if_neg h1]
+--     by_cases h2 : hasUnopenedChest sym b
+--     · rw [if_pos h2]; simp
+--     · rw [if_neg h2]
+--       by_cases h3 : hasUsableExit sym
+--       · rw [if_pos h3]; simp
+--       · rw [if_neg h3]; simp
+
+-- /-! 策略的 reachability 引理（框架性）：
+--     如果 BFS 存在路径，则存在 Exec 动作序列可到达目标。 -/
+-- theorem strategyOutput_action_if_needed
+--     (sym : SymbolicObs) (b : BeliefState) :
+--     strategyOutput sym b ≠ [Action.wait] ∨
+--     (∃ (actions : List Action) (sym' : SymbolicObs) (b' : BeliefState),
+--       Exec sym b actions sym' b') := by
+--   by_cases h : strategyOutput sym b = [Action.wait]
+--   · right; refine ⟨[], sym, b, Exec.nil⟩
+--   · left; exact h
+
+-- /-! 完整任务可完成性定理：
+--     将形式化的 Exec 路径与策略规范对接 -/
+-- theorem formalized_path_completes_task
+--     (initSym finalSym : SymbolicObs) (initBelief finalBelief : BeliefState)
+--     (plan : List Action) (goal : TaskGoal)
+--     (hexec : Exec initSym initBelief plan finalSym finalBelief)
+--     (hcomplete : taskCompleted finalSym finalBelief goal) :
+--     TaskCompletable initSym initBelief goal := by
+--   refine ⟨plan, finalSym, finalBelief, hexec, hcomplete⟩
