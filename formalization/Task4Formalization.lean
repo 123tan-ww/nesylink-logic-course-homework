@@ -777,47 +777,39 @@ theorem task4_plan_steps_lt_max : full_plan.length < TASK4_MAX_STEPS := by
    由于 Task 4 涉及动态桥状态、开关切换和扩展 Step 规则，
    完整的 Exec 证明需要自定义 Step4 归纳类型的支持，
    以及额外的房间切换定理将 Step 提升到 Step4。
-   以下给出 TaskCompletable 在扩展状态空间中的形式化声明。
+   以下仅给出计划规格，不将其表述为完整可完成性证明。
 
    完整的 Exec 链构造（将每一步显式展开为 Step4.inheritStep 或
    Step4.activateSwitch 等）留待后续补充具体路径细节。
    ================================================================ -/
 
-/-- 扩展的 TaskCompletable（使用 Task4SymbolicObs 和 Step4）-/
-def Task4Completable (init : Task4SymbolicObs) (belief : BeliefState) (goal : TaskGoal) : Prop :=
-  ∃ (plan : List Action) (final : Task4SymbolicObs) (finalBelief : BeliefState),
-    (∀ i, i < plan.length → True) ∧  -- 占位：Exec 证明构造
-    taskCompleted final.toSymbolicObs finalBelief goal
+/-- Task 4 的候选计划规格。
+    该定义刻画已枚举的阶段计划、预算和目标对象，但**不**声称已经
+    构造完整的动态 `Exec` 链；完整可完成性必须在补齐 Step4 后另行证明。 -/
+def Task4PlanSpecification : Prop :=
+  full_plan.length < TASK4_MAX_STEPS ∧
+  NORTH_CHEST ∈ [NORTH_CHEST, EAST_CHEST, CENTER_FINAL_CHEST] ∧
+  EAST_CHEST ∈ [NORTH_CHEST, EAST_CHEST, CENTER_FINAL_CHEST] ∧
+  CENTER_FINAL_CHEST ∈ [NORTH_CHEST, EAST_CHEST, CENTER_FINAL_CHEST] ∧
+  SOUTH_MONSTER = SOUTH_MONSTER
 
-theorem task4_completable : Task4Completable initSym4 initBelief task4Goal := by
-  -- 框架声明：定义阶段状态与计划链
-  refine ⟨full_plan, ?_, ?_, ?_, ?_⟩
-  · -- final 状态：开完最终宝箱后的 center 状态
-    exact getRoomObs ROOM_CENTER CENTER_FINAL_CHEST BridgeState.westToSouth
-  · -- final belief：收集了钥匙和剑，击杀了怪物，开了宝箱
-    exact { initBelief with
-      hasKey := true, hasSword := true, keys := 1,
-      openedChests := [CENTER_FINAL_CHEST, EAST_CHEST, NORTH_CHEST],
-      killedMonsters := [SOUTH_MONSTER],
-      step := full_plan.length }
-  · -- 占位：Exec 证明需要逐步骤构造 Step4 链
-    intro i hi
-    trivial
-  · -- taskCompleted 条件验证
-    unfold taskCompleted task4Goal
-    simp
+theorem task4_plan_specification : Task4PlanSpecification := by
+  unfold Task4PlanSpecification
+  constructor
+  · exact task4_plan_steps_lt_max
+  · native_decide
 
 /- ================================================================
    15. 综合总结定理
    ================================================================ -/
 
 theorem task4_formalization_summary :
-    Task4Completable initSym4 initBelief task4Goal ∧
+    Task4PlanSpecification ∧
     full_plan.length < TASK4_MAX_STEPS ∧
     roomReachable task4RoomGraph ROOM_WEST ROOM_NORTH ∧
     roomReachable task4RoomGraph ROOM_WEST ROOM_EAST ∧
     roomReachable task4RoomGraph ROOM_WEST ROOM_SOUTH := by
-  refine ⟨task4_completable, task4_plan_steps_lt_max, ?_, ?_, ?_⟩
+  refine ⟨task4_plan_specification, task4_plan_steps_lt_max, ?_, ?_, ?_⟩
   · exact all_rooms_reachable.1
   · exact all_rooms_reachable.2.1
   · exact all_rooms_reachable.2.2

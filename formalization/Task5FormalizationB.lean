@@ -843,8 +843,22 @@ def task5Goal : TaskGoal :=
     exitReached := false, allChestsOpened := true
   }
 
+/-- 22 步局部轨迹实际满足的目标。它只覆盖 Room 0 的一个宝箱，
+    因而不能用于声称 Task 5 已完成。 -/
+def task5PartialGoal : TaskGoal :=
+  { monstersDefeated := false, keyCollected := true, chestOpened := true,
+    exitReached := false, allChestsOpened := false
+  }
+
+/-- Task 5 的四个宝箱均已被打开。
+    该谓词显式补足通用 `taskCompleted` 当前未检查
+    `allChestsOpened` 字段的局限；四个位置来自四个 room 的地图常量。 -/
+def allTask5ChestsOpened (belief : BeliefState) : Prop :=
+  ∀ chest ∈ [ROOM0_CHEST, ROOM1_CHEST, ROOM2_CHEST, ROOM3_CHEST],
+    chest ∈ belief.openedChests
+
 /- ================================================================
-   11. 主定理 — task5_completable 这只是一部分，17c有完整版的
+   11. 局部 Exec 证明（17c 有完整四房间链）
    ================================================================
    【当前实际证明的内容】
    1. ✅ Room 0 的 22 步 path 是安全的（full_path_safe）
@@ -856,7 +870,7 @@ def task5Goal : TaskGoal :=
       - Phase 3: 8 步 → 南出口
       总步数 22，最终信念: hasKey=true, openedChests=[(4,2)]
    4. ✅ 所有房间从起点可达（图和拓扑层面）
-   5. ⚠️ 最终状态满足 task5Goal（但 allChestsOpened=false，仅开 1 箱）
+   5. 最终状态仅满足 `task5PartialGoal`，并不代表 Task 5 完成
    【局限性 — 严重】
    ❌❌❌ 仅打开 1/4 的宝箱，未完成关卡
    ❌ 未进入 Room 1/2/3，未打开它们的宝箱
@@ -867,11 +881,10 @@ def task5Goal : TaskGoal :=
    【说明】
    当前主定理仅证明了"存在一条可执行路径（22 步）"，
    但该路径只完成了关卡目标的一小部分。
-   完整通关需要：拼接 Room 1/2/3 Exec + 房间切换 + 杀怪，
-   这需要更复杂的 Exec 链式证明（尚未完成）。
+   完整四房间开箱链由下方 `all_chests_reachable_chain` 单独证明。
 -/
 
-theorem task5_completable : TaskCompletable initSym initBelief task5Goal := by
+theorem task5_partial_exec : TaskCompletable initSym initBelief task5PartialGoal := by
   -- Phase 1: spawn → 按钮 (6步)
   have h_phase1 := phase1_spawn_to_button
 
@@ -911,8 +924,8 @@ theorem task5_completable : TaskCompletable initSym initBelief task5Goal := by
     exact Exec.nil
 
   -- 最终状态满足任务目标
-  have h_goal : taskCompleted s3_atExit final_belief task5Goal := by
-    unfold taskCompleted task5Goal final_belief b14 belief_after_open
+  have h_goal : taskCompleted s3_atExit final_belief task5PartialGoal := by
+    unfold taskCompleted task5PartialGoal final_belief b14 belief_after_open
     simp [s3_atExit, s2_postChest, s2_atChestAdj, initSym,
       ROOM0_CHEST, ROOM0_BUTTON, ROOM0_MONSTER, ROOM0_EXITS]
 
@@ -2195,7 +2208,7 @@ theorem all_chests_reachable_chain : Exec initSym initBelief
    - allChestsOpened 已设为 true（task5Goal 已更新）
    - taskCompleted 不直接检查 allChestsOpened 字段，
      但 openedChests.length=4>0 满足 chestOpened 条件
-   - 此定理替代原 task5_completable（仅开 1 箱的 22 步证明）
+   - 此定理是主证明；22 步局部证明确认为 `task5_partial_exec`
      作为 task5_formalization_summary 使用的主定理
    - 原 22 步证明保留作为参考
    -/
@@ -2216,12 +2229,37 @@ theorem task5_completable_full : TaskCompletable initSym initBelief task5Goal :=
   -- 组装 TaskCompletable
   refine ⟨_, finalSym, finalBelief, h_exec, h_goal⟩
 
+/-- `all_chests_reachable_chain` 的终态确实包含四个不同房间的宝箱。
+    这是 Task 5“完成全部宝箱目标”的直接、可计算证据。 -/
+theorem task5_full_chain_opens_all_named_chests :
+    allTask5ChestsOpened
+      { initBelief with
+        step := 108,
+        openedChests := [ROOM2_CHEST, ROOM1_CHEST, ROOM3_CHEST, ROOM0_CHEST],
+        hasKey := true,
+        keys := 4,
+        pressedButtons := [ROOM0_BUTTON] } := by
+  intro chest hmem
+  simp at hmem ⊢
+  rcases hmem with h | h | h | h
+  · exact Or.inr (Or.inr (Or.inr h))
+  · exact Or.inr (Or.inl h)
+  · exact Or.inl h
+  · exact Or.inr (Or.inr (Or.inl h))
+
+/-- 存在一条已证明可执行的路径，并且该路径打开 Task 5 的全部四个宝箱。 -/
+theorem task5_full_exec_opens_all_chests :
+    ∃ (plan : List Action) (finalSym : SymbolicObs) (finalBelief : BeliefState),
+      Exec initSym initBelief plan finalSym finalBelief ∧
+      allTask5ChestsOpened finalBelief := by
+  refine ⟨_, _, _, all_chests_reachable_chain, ?_⟩
+  exact task5_full_chain_opens_all_named_chests
+
 /- ================================================================
    18. HP 倒计时安全 — Exec 路径步数不超过 deadline
    ================================================================
    【已证明】
-   - TASK5_COMPLETABLE_EXEC_STEPS = 22 < deadline(5) = 1000
-   - task5_completable_hp_safe: hpAfterDrain 5 22 = 5 > 0
+   - 局部 22 步链与完整 108 步链均在 deadline(5) = 1000 内
    - 各房间独立 Exec 的步数也均 < deadline（最长 Room 1: 18 步）
    - all_chests_reachable_chain: 108 < 1000，HP 完全安全
    【局限性】
@@ -2229,14 +2267,27 @@ theorem task5_completable_full : TaskCompletable initSym initBelief task5Goal :=
    - 假设无陷阱/怪物扣血（路径已验证避开陷阱）
 -/
 
-/-- task5_completable 路径的步数 -/
+/-- 局部 Exec 路径的步数 -/
 def TASK5_COMPLETABLE_EXEC_STEPS : Nat := 22
+
+/-- 当前主证明 `all_chests_reachable_chain` 的动作数。 -/
+def TASK5_FULL_EXEC_STEPS : Nat := 108
 
 theorem task5_completable_steps_lt_deadline : TASK5_COMPLETABLE_EXEC_STEPS < deadline INITIAL_HP := by
   native_decide
 
 theorem task5_completable_hp_safe : hpAfterDrain INITIAL_HP TASK5_COMPLETABLE_EXEC_STEPS > 0 :=
   must_finish_before_deadline INITIAL_HP TASK5_COMPLETABLE_EXEC_STEPS task5_completable_steps_lt_deadline
+
+/-- 完整四房间 108 步 Exec 链在倒计时死亡前完成。 -/
+theorem task5_full_exec_steps_lt_deadline :
+    TASK5_FULL_EXEC_STEPS < deadline INITIAL_HP := by
+  native_decide
+
+theorem task5_full_exec_hp_safe :
+    hpAfterDrain INITIAL_HP TASK5_FULL_EXEC_STEPS > 0 :=
+  must_finish_before_deadline INITIAL_HP TASK5_FULL_EXEC_STEPS
+    task5_full_exec_steps_lt_deadline
 
 /-- 各房间内部 Exec 路径步数均不超过 deadline（取最长的 Room 3 路径 16 步） -/
 theorem all_room_execs_steps_lt_deadline :
@@ -2248,7 +2299,7 @@ theorem all_room_execs_steps_lt_deadline :
 by
   native_decide
 
-/-- task5_completable 路径不经过任何陷阱 tile（Room 0 无陷阱，其他房间路径独立） -/
+/-- 局部 Exec 路径不经过任何陷阱 tile（Room 0 无陷阱，其他房间路径独立） -/
 theorem task5_completable_no_trap :
     ∀ p ∈ full_pathPositions, getTile buildRoom0Grid p ≠ some TILE_TRAP := by
   native_decide
