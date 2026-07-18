@@ -649,6 +649,8 @@ theorem safe_move_preserves_inBounds
     simp [isMoveAction] at hmove
   | shield =>
     simp [isMoveAction] at hmove
+  | pressButton hpos' hbutton' hat' =>
+    simp [isMoveAction] at hmove
   | roomTransition hpos' hmove' hescape' hplayer_some' hgrid_diff' hsafe_dest' =>
     have h_in_bounds : inBounds (t.player.get hplayer_some') := by
       unfold isSafeMoveB at hsafe_dest'
@@ -727,6 +729,8 @@ theorem safe_move_not_into_wall
       simp at h_not_blocked
       -- h_not_blocked : (((¬tile = TILE_WALL ∧ ¬tile = TILE_TRAP) ∧ ¬tile = TILE_GAP) ∧ ¬tile = TILE_MONSTER) ∧ ¬tile = TILE_CHEST
       exact h_not_blocked.1.1.1.1
+  | pressButton hpos' hbutton' hat' =>
+    intro htpos; trivial
   | _ =>
     intro htpos
     trivial
@@ -808,6 +812,8 @@ theorem safe_move_not_into_trap
       simp at h_not_blocked
       -- h_not_blocked : (((¬tile = TILE_WALL ∧ ¬tile = TILE_TRAP) ∧ ¬tile = TILE_GAP) ∧ ¬tile = TILE_MONSTER) ∧ ¬tile = TILE_CHEST
       exact h_not_blocked.1.1.1.2
+  | pressButton hpos' hbutton' hat' =>
+    intro htpos; trivial
   | _ =>
     intro htpos
     trivial
