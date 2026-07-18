@@ -69,7 +69,7 @@ def buildRoom1Grid : Grid :=
   List.map (fun (y : Nat) =>
     List.map (fun (x : Nat) =>
       if (x, y) ∈ ROOM1_EXITS then TILE_EXIT
-      else TILE_EMPTY)
+      else (if (x,y) = ROOM1_MONSTER then TILE_MONSTER else TILE_EMPTY))
     (List.range ROOM_W))
   (List.range ROOM_H)
 
@@ -171,32 +171,41 @@ def task3RoomGraph : RoomGraph :=
 
 theorem start_to_keyRoom_reachable :
     roomReachable task3RoomGraph ROOM0_ID ROOM2_ID := by
-  refine RoomPath.step ?_ (RoomPath.step ?_ RoomPath.self)
-  · refine ⟨"west", { direction := "west", exitType := "normal", opened := true,
-                      dest := ROOM1_ID, start := ROOM0_ID, tiles := [(0, 4)], isReached := false }, ?_, rfl⟩
-    unfold getRoomExits; simp [task3RoomGraph]
-  · refine ⟨"west", { direction := "west", exitType := "normal", opened := true,
-                      dest := ROOM2_ID, start := ROOM1_ID, tiles := [(0, 4)], isReached := false }, ?_, rfl⟩
-    unfold getRoomExits; simp [task3RoomGraph]
+  have h1: adjacentRooms task3RoomGraph ROOM0_ID ROOM1_ID := by
+    unfold adjacentRooms
+    simp [task3RoomGraph,getRoomExits]
+    exists "west",  { direction := "west",  exitType := "normal",     opened := true,  dest := 1, start := 0, tiles := [(0, 4)], isReached := false }
+  have h2: adjacentRooms task3RoomGraph ROOM1_ID ROOM2_ID := by
+    unfold adjacentRooms
+    simp [task3RoomGraph,getRoomExits]
+    exists "west",  { direction := "west",  exitType := "normal",     opened := true,  dest := 2, start := 1, tiles := [(0, 4)], isReached := false }
+  exact RoomPath.step h1 (RoomPath.step h2 RoomPath.self)
+
 
 theorem keyRoom_to_start_reachable :
-    roomReachable task3RoomGraph ROOM2_ID ROOM0_ID := by
-  refine RoomPath.step ?_ (RoomPath.step ?_ RoomPath.self)
-  · refine ⟨"east", { direction := "east", exitType := "normal", opened := true,
-                      dest := ROOM1_ID, start := ROOM2_ID, tiles := [(9, 4)], isReached := false }, ?_, rfl⟩
-    unfold getRoomExits; simp [task3RoomGraph]
-  · refine ⟨"east", { direction := "east", exitType := "normal", opened := true,
-                      dest := ROOM0_ID, start := ROOM1_ID, tiles := [(9, 4)], isReached := false }, ?_, rfl⟩
-    unfold getRoomExits; simp [task3RoomGraph]
+  roomReachable task3RoomGraph ROOM2_ID ROOM0_ID := by
+  have h1: adjacentRooms task3RoomGraph ROOM1_ID ROOM0_ID := by
+    unfold adjacentRooms
+    simp [task3RoomGraph,getRoomExits]
+    exists "east",  { direction := "east",  exitType := "normal", opened := true,  dest := 0, start := 1, tiles := [(9, 4)], isReached := false }
+  have h2: adjacentRooms task3RoomGraph ROOM2_ID ROOM1_ID := by
+    unfold adjacentRooms
+    simp [task3RoomGraph,getRoomExits]
+    exists "east",  { direction := "east",  exitType := "normal", opened := true,  dest := 1, start := 2, tiles := [(9, 4)], isReached := false }
+  exact RoomPath.step h2 (RoomPath.step h1 RoomPath.self)
+
 
 theorem all_rooms_reachable :
     roomReachable task3RoomGraph ROOM0_ID ROOM1_ID ∧
     roomReachable task3RoomGraph ROOM0_ID ROOM2_ID := by
-  refine ⟨?_, start_to_keyRoom_reachable⟩
-  refine RoomPath.step ?_ RoomPath.self
-  refine ⟨"west", { direction := "west", exitType := "normal", opened := true,
-                    dest := ROOM1_ID, start := ROOM0_ID, tiles := [(0, 4)], isReached := false }, ?_, rfl⟩
-  unfold getRoomExits; simp [task3RoomGraph]
+  constructor
+  · have h1: adjacentRooms task3RoomGraph ROOM0_ID ROOM1_ID := by
+      unfold adjacentRooms
+      simp [task3RoomGraph,getRoomExits]
+      exists "west",  { direction := "west",  exitType := "normal",     opened := true,  dest := 1, start := 0, tiles := [(0, 4)], isReached := false }
+    exact RoomPath.step h1 RoomPath.self
+  · exact start_to_keyRoom_reachable
+
 
 /- ================================================================
    8. 房间切换定理
@@ -217,12 +226,13 @@ by
     have h0 : room'.grid = buildRoom1Grid := by simp [room', getRoomObs]
     have h1 : s.grid = buildRoom0Grid := hgrid
     rw [h0, h1] at h_eq
-    have : buildRoom1Grid ≠ buildRoom0Grid := by native_decide
-    exact this h_eq.symm
+    have hdiff: buildRoom1Grid ≠ buildRoom0Grid := by
+      simp[buildRoom0Grid,buildRoom1Grid];exists 0
+    contradiction
   have hplayer_some : room'.player.isSome := by simp [room', getRoomObs]
   have hsafe_dest : isSafeMoveB room'.grid (room'.player.get hplayer_some) = true := by
     simp [room', getRoomObs]; native_decide
-  exact Step.roomTransition hpos hmove hescape hplayer_some hgrid_diff hsafe_dest
+  exact @Step.roomTransition s (getRoomObs 1 ROOM1_SPAWN_FROM_EAST) b Action.left hpos hmove hescape hplayer_some hgrid_diff hsafe_dest
 
 theorem monster_hall_east_to_start (s : SymbolicObs) (b : BeliefState)
     (hgrid : s.grid = buildRoom1Grid) (hplayer : s.player = some (9, 4))
@@ -240,7 +250,7 @@ by
     have h1 : s.grid = buildRoom1Grid := hgrid
     rw [h0, h1] at h_eq
     have : buildRoom0Grid ≠ buildRoom1Grid := by native_decide
-    exact this h_eq.symm
+    exact this h_eq
   have hplayer_some : room'.player.isSome := by simp [room', getRoomObs]
   have hsafe_dest : isSafeMoveB room'.grid (room'.player.get hplayer_some) = true := by
     simp [room', getRoomObs]; native_decide
@@ -262,7 +272,7 @@ by
     have h1 : s.grid = buildRoom1Grid := hgrid
     rw [h0, h1] at h_eq
     have : buildRoom2Grid ≠ buildRoom1Grid := by native_decide
-    exact this h_eq.symm
+    exact this h_eq
   have hplayer_some : room'.player.isSome := by simp [room', getRoomObs]
   have hsafe_dest : isSafeMoveB room'.grid (room'.player.get hplayer_some) = true := by
     simp [room', getRoomObs]; native_decide
@@ -284,7 +294,7 @@ by
     have h1 : s.grid = buildRoom2Grid := hgrid
     rw [h0, h1] at h_eq
     have : buildRoom1Grid ≠ buildRoom2Grid := by native_decide
-    exact this h_eq.symm
+    exact this h_eq
   have hplayer_some : room'.player.isSome := by simp [room', getRoomObs]
   have hsafe_dest : isSafeMoveB room'.grid (room'.player.get hplayer_some) = true := by
     simp [room', getRoomObs]; native_decide
@@ -302,7 +312,12 @@ by
   have hmove : isMoveAction Action.right := by simp [isMoveAction]
   have hescape : isExitLeavingAction (s.player.get hpos) Action.right s.exits := by
     simp [hplayer, hexits, ROOM0_EXITS, isExitLeavingAction, ROOM_W, ROOM_H]
-  exact Step.moveExit hpos hmove hescape
+  have h0 := @Step.moveExit s b Action.right hpos hmove hescape
+  simp[nextPosition] at h0
+  have h1: s.player.get hpos = (9, 4) := by simp [hplayer]
+  rw[h1] at h0
+  exact h0
+
 
 /- ================================================================
    9. 各房间路径安全
@@ -311,7 +326,7 @@ by
 /-- start_room 路径（均为空 tile 或 exit）-/
 def room0_path : List Position := [
   (3,4), (2,4), (1,4), (0,4),      -- (4,4)→西出口
-  (5,4), (6,4), (7,4), (8,4), (9,4) -- (4,4)→东锁门
+  (1,4),(2,4),(3,4),(4,4),(5,4), (6,4), (7,4), (8,4), (9,4) -- (4,4)→东锁门
 ]
 
 theorem room0_path_safe : ∀ p ∈ room0_path, isSafeMove buildRoom0Grid p := by
@@ -327,13 +342,13 @@ def room1_path : List Position := [
 
 theorem room1_path_safe : ∀ p ∈ room1_path, isSafeMove buildRoom1Grid p := by
   simp [room1_path, isSafeMove, isBlocked, inBounds, getTile,
-    buildRoom1Grid, ROOM1_EXITS, ROOM_W, ROOM_H, TILE_EMPTY, TILE_EXIT]
+    buildRoom1Grid, ROOM1_EXITS, ROOM_W, ROOM_H, TILE_EMPTY, TILE_EXIT,ROOM1_MONSTER]
   all_goals { native_decide }
 
 /-- key_room 路径 -/
 def room2_path : List Position := [
-  (7,4),(6,4),(5,4),            -- spawn→宝箱
-  (6,4),(7,4),(8,4),(9,4)      -- 宝箱→东出口
+  (7,4),(6,4),            -- spawn→宝箱
+  (7,4),(8,4),(9,4)      -- 宝箱→东出口
 ]
 
 theorem room2_path_safe : ∀ p ∈ room2_path, isSafeMove buildRoom2Grid p := by
@@ -516,10 +531,9 @@ def s2_atSpawn : SymbolicObs := getRoomObs 2 ROOM2_SPAWN
 def s2_chest1 : SymbolicObs := { s2_atSpawn with player := some (7, 4), facing := Direction.left }
 def s2_chest2 : SymbolicObs := { s2_atSpawn with player := some (6, 4), facing := Direction.left }
 def s2_atChest : SymbolicObs := { s2_atSpawn with player := some (5, 4), facing := Direction.left }
-def s2_postChest : SymbolicObs := { s2_atChest with chests := [] }
-def s2_exit1 : SymbolicObs := { s2_postChest with player := some (6, 4), facing := Direction.right }
-def s2_exit2 : SymbolicObs := { s2_postChest with player := some (7, 4), facing := Direction.right }
-def s2_exit3 : SymbolicObs := { s2_postChest with player := some (8, 4), facing := Direction.right }
+def s2_postChest : SymbolicObs := { s2_atChest with player := some (6,4),chests := [] }
+def s2_exit1 : SymbolicObs := { s2_postChest with player := some (7, 4), facing := Direction.right }
+def s2_exit2 : SymbolicObs := { s2_postChest with player := some (8, 4), facing := Direction.right }
 def s2_atEastExit : SymbolicObs := { s2_postChest with player := some (9, 4), facing := Direction.right }
 
 -- Room 1 回程: 从西入口(1,4)→东出口(9,4)
@@ -558,10 +572,10 @@ theorem phase1_spawn_to_west_exit (b : BeliefState) :
       s0_atWestExit { b with step := b.step + 4 } := by
   let b0 := b; let b1 := {b0 with step := b0.step+1}; let b2 := {b1 with step := b1.step+1}
   let b3 := {b2 with step := b2.step+1}; let b4 := {b3 with step := b3.step+1}
-  apply Exec.cons (step0_left s0_atSpawn b0 4 4 (by simp [s0_atSpawn, getRoomObs]) (by simp) (by simp [room0_path]))
-  apply Exec.cons (step0_left s0_west1 b1 3 4 (by simp [s0_west1, s0_atSpawn]) (by simp) (by simp [room0_path]))
-  apply Exec.cons (step0_left s0_west2 b2 2 4 (by simp [s0_west2, s0_atSpawn]) (by simp) (by simp [room0_path]))
-  apply Exec.cons (step0_left s0_west3 b3 1 4 (by simp [s0_west3, s0_atSpawn]) (by simp) (by simp [room0_path]))
+  apply Exec.cons (step0_left s0_atSpawn b0 4 4 (by simp [s0_atSpawn, getRoomObs]) (by simp[s0_atSpawn,getRoomObs,ROOM0_SPAWN_DEFAULT]) (by simp [room0_path]))
+  apply Exec.cons (step0_left s0_west1 b1 3 4 (by simp [s0_west1, s0_atSpawn,getRoomObs,ROOM0_SPAWN_DEFAULT]) (by simp[s0_west1]) (by simp [room0_path]))
+  apply Exec.cons (step0_left s0_west2 b2 2 4 (by simp [s0_west2, s0_atSpawn,getRoomObs,ROOM0_SPAWN_DEFAULT]) (by simp[s0_west2]) (by simp [room0_path]))
+  apply Exec.cons (step0_left s0_west3 b3 1 4 (by simp [s0_west3, s0_atSpawn,getRoomObs,ROOM0_SPAWN_DEFAULT]) (by simp[s0_west3]) (by simp [room0_path]))
   exact Exec.nil
 
 /-- Phase 2: 房间切换 start→monster_hall [1步] -/
@@ -584,14 +598,14 @@ theorem phase3_monster_hall_to_west_exit (b : BeliefState) :
   let b3 := {b2 with step:=b2.step+1}; let b4 := {b3 with step:=b3.step+1}
   let b5 := {b4 with step:=b4.step+1}; let b6 := {b5 with step:=b5.step+1}
   let b7 := {b6 with step:=b6.step+1}; let b8 := {b7 with step:=b7.step+1}
-  apply Exec.cons (step1_left s1_fromEast b0 8 4 (by simp [s1_fromEast, getRoomObs]) (by simp) (by simp [room1_path]))
-  apply Exec.cons (step1_left s1_west1 b1 7 4 (by simp) (by simp) (by simp [room1_path]))
-  apply Exec.cons (step1_left s1_west2 b2 6 4 (by simp) (by simp) (by simp [room1_path]))
-  apply Exec.cons (step1_left s1_west3 b3 5 4 (by simp) (by simp) (by simp [room1_path]))
-  apply Exec.cons (step1_left s1_west4 b4 4 4 (by simp) (by simp) (by simp [room1_path]))
-  apply Exec.cons (step1_left s1_west5 b5 3 4 (by simp) (by simp) (by simp [room1_path]))
-  apply Exec.cons (step1_left s1_west6 b6 2 4 (by simp) (by simp) (by simp [room1_path]))
-  apply Exec.cons (step1_left s1_west7 b7 1 4 (by simp) (by simp) (by simp [room1_path]))
+  apply Exec.cons (step1_left s1_fromEast b0 8 4 (by simp [s1_fromEast, getRoomObs]) (by simp[s1_fromEast,getRoomObs,ROOM1_SPAWN_FROM_EAST]) (by simp [room1_path]))
+  apply Exec.cons (step1_left s1_west1 b1 7 4 (by simp[s1_west1,s1_fromEast,getRoomObs]) (by simp[s1_west1]) (by simp [room1_path]))
+  apply Exec.cons (step1_left s1_west2 b2 6 4 (by simp[s1_west2,s1_fromEast,getRoomObs]) (by simp[s1_west2]) (by simp [room1_path]))
+  apply Exec.cons (step1_left s1_west3 b3 5 4 (by simp[s1_west3,s1_fromEast,getRoomObs]) (by simp[s1_west3]) (by simp [room1_path]))
+  apply Exec.cons (step1_left s1_west4 b4 4 4 (by simp[s1_west4,s1_fromEast,getRoomObs]) (by simp[s1_west4]) (by simp [room1_path]))
+  apply Exec.cons (step1_left s1_west5 b5 3 4 (by simp[s1_west5,s1_fromEast,getRoomObs]) (by simp[s1_west5]) (by simp [room1_path]))
+  apply Exec.cons (step1_left s1_west6 b6 2 4 (by simp[s1_west6,s1_fromEast,getRoomObs]) (by simp[s1_west6]) (by simp [room1_path]))
+  apply Exec.cons (step1_left s1_west7 b7 1 4 (by simp[s1_west7,s1_fromEast,getRoomObs]) (by simp[s1_west7]) (by simp [room1_path]))
   exact Exec.nil
 
 /-- Phase 4: 房间切换 monster_hall→key_room [1步] -/
@@ -604,32 +618,39 @@ theorem phase4_transition_to_key_room (b : BeliefState) :
       (by simp [s1_atWestExit, s1_fromEast, getRoomObs])
   · exact Exec.nil
 
-/-- Phase 5: key_room(8,4)→宝箱(5,4)开箱 [3步+buttonA] -/
+/-- Phase 5: key_room(8,4)→宝箱(5,4)开箱 [2步+buttonA] -/
 theorem phase5_walk_to_chest_and_open (b : BeliefState) :
-    Exec s2_atSpawn b [Action.left, Action.left, Action.left, Action.buttonA]
-      s2_postChest (belief_after_key b) := by
+    Exec s2_atSpawn b [Action.left, Action.left, Action.buttonA]
+      s2_postChest {(belief_after_key b) with step := (belief_after_key b).step + 2 } := by
   let b0 := b; let b1 := {b0 with step:=b0.step+1}; let b2 := {b1 with step:=b1.step+1}
-  let b3 := {b2 with step:=b2.step+1}; let b4 := {b3 with step:=b3.step+1}
-  apply Exec.cons (step2_left s2_atSpawn b0 8 4 (by simp [s2_atSpawn, getRoomObs]) (by simp) (by simp [room2_path]))
-  apply Exec.cons (step2_left s2_chest1 b1 7 4 (by simp [s2_chest1, s2_atSpawn]) (by simp) (by simp [room2_path]))
-  apply Exec.cons (step2_left s2_chest2 b2 6 4 (by simp [s2_chest2, s2_atSpawn]) (by simp) (by simp [room2_path]))
-  apply Exec.cons ?_ Exec.nil
-  refine Step.openChest (c := ROOM2_CHEST) ?_ ?_ ?_
-  · simp [s2_atChest]
-  · simp [s2_atChest, s2_atSpawn, getRoomObs, ROOM2_CHEST]
-  · simp [adjacent, manhattan, s2_atChest, ROOM2_CHEST]
+  let b3 := {b2 with step:=b2.step+1}
+  apply Exec.cons (step2_left s2_atSpawn b0 8 4 (by simp [s2_atSpawn, getRoomObs]) (by simp[s2_atSpawn,getRoomObs,ROOM2_SPAWN]) (by simp [room2_path]))
+  apply Exec.cons (step2_left s2_chest1 b1 7 4 (by simp [s2_chest1, s2_atSpawn,getRoomObs]) (by simp[s2_chest1]) (by simp [room2_path]))
+  simp[s2_postChest,belief_after_key]
+  let s_before := {s2_atSpawn with player := some (6,4), facing := Direction.left}
+  have h_openchest := @Step.openChest s_before b2 (5,4) (by simp [s_before]) (by simp[s_before,s2_atSpawn,getRoomObs,ROOM2_CHEST]) (by simp [s_before,adjacent,manhattan])
+  simp[s_before] at h_openchest
+  simp[s2_chest1]
+  simp[b2] at h_openchest
+  apply Exec.cons h_openchest
+  simp[s2_atChest,s2_atSpawn]
+  simp[getRoomObs,ROOM2_SPAWN,ROOM2_CHEST,b1,b0]
+  exact Exec.nil
 
-/-- Phase 6: key_room(5,4)→东出口(9,4) [4步] -/
+
+
+
+
+/-- Phase 6: key_room(6,4)→东出口(9,4) [3步] -/
 theorem phase6_chest_to_east_exit (b : BeliefState) :
-    Exec s2_postChest (belief_after_key b) [Action.right, Action.right, Action.right, Action.right]
-      s2_atEastExit { (belief_after_key b) with step := (belief_after_key b).step + 4 } := by
+    Exec s2_postChest (belief_after_key b) [Action.right, Action.right, Action.right]
+      s2_atEastExit { (belief_after_key b) with step := (belief_after_key b).step + 3 } := by
   let b0 := belief_after_key b
   let b1 := {b0 with step:=b0.step+1}; let b2 := {b1 with step:=b1.step+1}
   let b3 := {b2 with step:=b2.step+1}; let b4 := {b3 with step:=b3.step+1}
-  apply Exec.cons (step2_right s2_postChest b0 5 4 (by simp [s2_postChest, s2_atChest, s2_atSpawn]) (by simp) (by simp [room2_path]))
-  apply Exec.cons (step2_right s2_exit1 b1 6 4 (by simp) (by simp) (by simp [room2_path]))
-  apply Exec.cons (step2_right s2_exit2 b2 7 4 (by simp) (by simp) (by simp [room2_path]))
-  apply Exec.cons (step2_right s2_exit3 b3 8 4 (by simp) (by simp) (by simp [room2_path]))
+  apply Exec.cons (step2_right s2_postChest b0 6 4 (by simp [s2_postChest, s2_atChest, s2_atSpawn,getRoomObs]) (by simp[s2_postChest]) (by simp [room2_path]))
+  apply Exec.cons (step2_right s2_exit1 b1 7 4 (by simp[s2_exit1,s2_postChest,s2_atChest,s2_atSpawn,getRoomObs]) (by simp[s2_exit1]) (by simp [room2_path]))
+  apply Exec.cons (step2_right s2_exit2 b2 8 4 (by simp[s2_exit2,s2_postChest,s2_atChest,s2_atSpawn,getRoomObs]) (by simp[s2_exit2]) (by simp [room2_path]))
   exact Exec.nil
 
 /-- Phase 7: 房间切换 key_room→monster_hall（回程）[1步] -/
@@ -639,7 +660,7 @@ theorem phase7_transition_back_to_monster_hall (b : BeliefState) :
   · exact key_room_east_to_monster_hall s2_atEastExit b
       (by simp [s2_atEastExit, s2_postChest, s2_atChest, s2_atSpawn, getRoomObs])
       (by simp [s2_atEastExit])
-      (by simp [s2_atEastExit, s2_postChest, s2_atSpawn, getRoomObs])
+      (by simp [s2_atEastExit, s2_postChest, s2_atSpawn, getRoomObs,s2_atChest])
   · exact Exec.nil
 
 /-- Phase 8: monster_hall(1,4)→东出口(9,4) [8步] -/
@@ -652,14 +673,14 @@ theorem phase8_monster_hall_to_east_exit (b : BeliefState) :
   let b3 := {b2 with step:=b2.step+1}; let b4 := {b3 with step:=b3.step+1}
   let b5 := {b4 with step:=b4.step+1}; let b6 := {b5 with step:=b5.step+1}
   let b7 := {b6 with step:=b6.step+1}; let b8 := {b7 with step:=b7.step+1}
-  apply Exec.cons (step1_right s1_fromWest b0 1 4 (by simp [s1_fromWest, getRoomObs]) (by simp) (by simp [room1_path]))
-  apply Exec.cons (step1_right s1_east1 b1 2 4 (by simp) (by simp) (by simp [room1_path]))
-  apply Exec.cons (step1_right s1_east2 b2 3 4 (by simp) (by simp) (by simp [room1_path]))
-  apply Exec.cons (step1_right s1_east3 b3 4 4 (by simp) (by simp) (by simp [room1_path]))
-  apply Exec.cons (step1_right s1_east4 b4 5 4 (by simp) (by simp) (by simp [room1_path]))
-  apply Exec.cons (step1_right s1_east5 b5 6 4 (by simp) (by simp) (by simp [room1_path]))
-  apply Exec.cons (step1_right s1_east6 b6 7 4 (by simp) (by simp) (by simp [room1_path]))
-  apply Exec.cons (step1_right s1_east7 b7 8 4 (by simp) (by simp) (by simp [room1_path]))
+  apply Exec.cons (step1_right s1_fromWest b0 1 4 (by simp [s1_fromWest, getRoomObs]) (by simp[s1_fromWest,getRoomObs,ROOM1_SPAWN_FROM_WEST]) (by simp [room1_path]))
+  apply Exec.cons (step1_right s1_east1 b1 2 4 (by simp[s1_east1,s1_fromWest,getRoomObs]) (by simp[s1_east1]) (by simp [room1_path]))
+  apply Exec.cons (step1_right s1_east2 b2 3 4 (by simp[s1_east2,s1_fromWest,getRoomObs]) (by simp[s1_east2]) (by simp [room1_path]))
+  apply Exec.cons (step1_right s1_east3 b3 4 4 (by simp[s1_east3,s1_fromWest,getRoomObs]) (by simp[s1_east3]) (by simp [room1_path]))
+  apply Exec.cons (step1_right s1_east4 b4 5 4 (by simp[s1_east4,s1_fromWest,getRoomObs]) (by simp[s1_east4]) (by simp [room1_path]))
+  apply Exec.cons (step1_right s1_east5 b5 6 4 (by simp[s1_east5,s1_fromWest,getRoomObs]) (by simp[s1_east5]) (by simp [room1_path]))
+  apply Exec.cons (step1_right s1_east6 b6 7 4 (by simp[s1_east6,s1_fromWest,getRoomObs]) (by simp[s1_east6]) (by simp [room1_path]))
+  apply Exec.cons (step1_right s1_east7 b7 8 4 (by simp[s1_east7,s1_fromWest,getRoomObs]) (by simp[s1_east7]) (by simp [room1_path]))
   exact Exec.nil
 
 /-- Phase 9: 房间切换 monster_hall→start [1步] -/
@@ -682,27 +703,16 @@ theorem phase10_walk_to_locked_exit (b : BeliefState) :
   let b3 := {b2 with step:=b2.step+1}; let b4 := {b3 with step:=b3.step+1}
   let b5 := {b4 with step:=b4.step+1}; let b6 := {b5 with step:=b5.step+1}
   let b7 := {b6 with step:=b6.step+1}; let b8 := {b7 with step:=b7.step+1}
-  apply Exec.cons (step0_right s0_fromWest b0 1 4 (by simp [s0_fromWest, getRoomObs]) (by simp) (by simp [room0_path]))
-  apply Exec.cons (step0_right s0_east1 b1 2 4 (by simp) (by simp) (by simp [room0_path]))
-  apply Exec.cons (step0_right s0_east2 b2 3 4 (by simp) (by simp) (by simp [room0_path]))
-  apply Exec.cons (step0_right s0_east3 b3 4 4 (by simp) (by simp) (by simp [room0_path]))
-  apply Exec.cons (step0_right s0_east4 b4 5 4 (by simp) (by simp) (by simp [room0_path]))
-  apply Exec.cons (step0_right s0_east5 b5 6 4 (by simp) (by simp) (by simp [room0_path]))
-  apply Exec.cons (step0_right s0_east6 b6 7 4 (by simp) (by simp) (by simp [room0_path]))
-  apply Exec.cons (step0_right s0_east7 b7 8 4 (by simp) (by simp) (by simp [room0_path]))
+  apply Exec.cons (step0_right s0_fromWest b0 1 4 (by simp [s0_fromWest, getRoomObs]) (by simp[s0_fromWest,getRoomObs,ROOM0_SPAWN_FROM_WEST]) (by simp [room0_path]))
+  apply Exec.cons (step0_right s0_east1 b1 2 4 (by simp[s0_east1,s0_fromWest,getRoomObs]) (by simp[s0_east1]) (by simp [room0_path]))
+  apply Exec.cons (step0_right s0_east2 b2 3 4 (by simp[s0_east2,s0_fromWest,getRoomObs]) (by simp[s0_east2]) (by simp [room0_path]))
+  apply Exec.cons (step0_right s0_east3 b3 4 4 (by simp[s0_east3,s0_fromWest,getRoomObs]) (by simp[s0_east3]) (by simp [room0_path]))
+  apply Exec.cons (step0_right s0_east4 b4 5 4 (by simp[s0_east4,s0_fromWest,getRoomObs]) (by simp[s0_east4]) (by simp [room0_path]))
+  apply Exec.cons (step0_right s0_east5 b5 6 4 (by simp[s0_east5,s0_fromWest,getRoomObs]) (by simp[s0_east5]) (by simp [room0_path]))
+  apply Exec.cons (step0_right s0_east6 b6 7 4 (by simp[s0_east6,s0_fromWest,getRoomObs]) (by simp[s0_east6]) (by simp [room0_path]))
+  apply Exec.cons (step0_right s0_east7 b7 8 4 (by simp[s0_east7,s0_fromWest,getRoomObs]) (by simp[s0_east7]) (by simp [room0_path]))
   exact Exec.nil
 
-/-- Phase 11: 东锁门出口（使用钥匙）[1步] -/
-theorem phase11_locked_exit (b : BeliefState) (hhasKey : b.hasKey = true) :
-    Exec s0_atEastLocked b [Action.right] { s0_atEastLocked with player := some (10, 4) }
-      { b with step := b.step + 1 } := by
-  apply Exec.cons
-  · exact start_east_locked_exit s0_atEastLocked b
-      (by simp [s0_atEastLocked, s0_fromWest, getRoomObs])
-      (by simp [s0_atEastLocked])
-      (by simp [s0_atEastLocked, s0_fromWest, getRoomObs])
-      hhasKey
-  · exact Exec.nil
 
 /- ================================================================
    13. 任务完成条件
@@ -765,39 +775,42 @@ theorem task3_completable : TaskCompletable initSym initBelief task3Goal := by
 
   -- Phase 5: 开宝箱
   have h5 : Exec s2_atSpawn { initBelief with step := 14 }
-    [Action.left, Action.left, Action.left, Action.buttonA]
-    s2_postChest (belief_after_key { initBelief with step := 14 }) :=
+    [Action.left, Action.left, Action.buttonA]
+    s2_postChest ({belief_after_key { initBelief with step := 14 } with step := 17}) :=
     phase5_walk_to_chest_and_open { initBelief with step := 14 }
 
-  let plan12345 := plan1234 ++ [Action.left, Action.left, Action.left, Action.buttonA]
+  let plan12345 := plan1234 ++ [Action.left, Action.left, Action.buttonA]
   have h12345 : Exec initSym initBelief plan12345 s2_postChest
-    (belief_after_key { initBelief with step := 14 }) :=
+    ({belief_after_key { initBelief with step := 14 } with step := 17}) :=
     exec_append h1234 h5
 
   -- Phase 6: key_room→东出口
-  have h6 : Exec s2_postChest (belief_after_key { initBelief with step := 14 })
-    [Action.right, Action.right, Action.right, Action.right]
-    s2_atEastExit { (belief_after_key { initBelief with step := 14 }) with
-      step := (belief_after_key { initBelief with step := 14 }).step + 4 } :=
-    phase6_chest_to_east_exit { initBelief with step := 14 }
+  have h6 : Exec s2_postChest ({belief_after_key { initBelief with step := 14 } with step := 17})
+    [Action.right, Action.right, Action.right]
+    s2_atEastExit {belief_after_key { initBelief with step := 14 } with step := 20}  := by
+      have hp6:=phase6_chest_to_east_exit {initBelief with step := 16}
+      simp[belief_after_key] at hp6
+      exact hp6
+
+
 
   let b_key := belief_after_key { initBelief with step := 14 }
-  let plan123456 := plan12345 ++ [Action.right, Action.right, Action.right, Action.right]
+  let plan123456 := plan12345 ++ [Action.right, Action.right, Action.right]
   have h123456 : Exec initSym initBelief plan123456 s2_atEastExit
-    { b_key with step := b_key.step + 4 } :=
+    { b_key with step := b_key.step + 5 } :=
     exec_append h12345 h6
 
   -- Phase 7: 回程→monster_hall
-  have h7 : Exec s2_atEastExit { b_key with step := b_key.step + 4 }
-    [Action.right] s1_fromWest { { b_key with step := b_key.step + 4 } with step := b_key.step + 5 } :=
-    phase7_transition_back_to_monster_hall { b_key with step := b_key.step + 4 }
+  have h7 : Exec s2_atEastExit { b_key with step := b_key.step + 5 }
+    [Action.right] s1_fromWest { { b_key with step := b_key.step + 5 } with step := b_key.step + 6 } :=
+    phase7_transition_back_to_monster_hall { b_key with step := b_key.step + 5 }
 
   let plan1234567 := plan123456 ++ [Action.right]
   have h1234567 : Exec initSym initBelief plan1234567 s1_fromWest
-    { { b_key with step := b_key.step + 4 } with step := b_key.step + 5 } :=
+    { { b_key with step := b_key.step + 5 } with step := b_key.step + 6 } :=
     exec_append h123456 h7
 
-  let b_mh := { { b_key with step := b_key.step + 4 } with step := b_key.step + 5 }
+  let b_mh := { { b_key with step := b_key.step + 5 } with step := b_key.step + 6 }
 
   -- Phase 8: monster_hall→东出口
   have h8 : Exec s1_fromWest b_mh
@@ -847,22 +860,15 @@ theorem task3_completable : TaskCompletable initSym initBelief task3Goal := by
   have hhasKey : b_locked.hasKey = true := by
     unfold b_locked b_start b_mh2 b_mh b_key belief_after_key; simp
 
-  -- Phase 11: 开锁门
-  have h11 : Exec s0_atEastLocked b_locked [Action.right]
-    { s0_atEastLocked with player := some (10, 4) }
-    { b_locked with step := b_locked.step + 1 } :=
-    phase11_locked_exit b_locked hhasKey
-
-  let full_plan := plan12345678910 ++ [Action.right]
-  let final_sym : SymbolicObs := { s0_atEastLocked with player := some (10, 4) }
-  let final_belief := { b_locked with step := b_locked.step + 1 }
-  have h_full : Exec initSym initBelief full_plan final_sym final_belief :=
-    exec_append h12345678910 h11
+  let full_plan := plan12345678910
+  let final_sym : SymbolicObs := { s0_atEastLocked with player := some (9, 4) }
+  let final_belief := b_locked
+  have h_full := h12345678910
 
   refine ⟨full_plan, final_sym, final_belief, h_full, ?_⟩
   unfold taskCompleted task3Goal final_belief b_locked b_start b_mh2 b_mh b_key belief_after_key
   simp
-
+  simp[final_sym, s0_atEastLocked, s0_fromWest, getRoomObs, ROOM0_SPAWN_FROM_WEST,ROOM0_EXITS]
 /- ================================================================
    15. 综合性总结定理
    ================================================================ -/

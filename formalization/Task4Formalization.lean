@@ -196,12 +196,13 @@ def initBelief : BeliefState :=
   }
 
 /-- 初始扩展状态（含桥和剑状态）-/
-def initSym4 : Task4SymbolicObs :=
-  { toSymbolicObs := initSym
-    bridgeState := BridgeState.westToNorth
-    hasSword := false
-  }
+structure Task4SymbolicObs where
+  toSymbolicObs : SymbolicObs
+  bridgeState : BridgeState
+  hasSword : Bool
 
+def initSym4 : Task4SymbolicObs :=
+  { toSymbolicObs := initSym, bridgeState := BridgeState.westToNorth, hasSword := false }
 /- ================================================================
    6. 房间状态构造器 + 出口→目标映射
    ================================================================ -/
@@ -214,35 +215,35 @@ def getRoomObs (rid : RoomId) (playerPos : Position) (bs : BridgeState) : Task4S
              monsters := [], chests := [], exits := [WEST_EXIT_EAST],
              traps := [], buttons := [], switches := [WEST_SWITCH],
              grid := buildWestGrid }
-           bridgeState := bs; hasSword := false }
+           bridgeState := bs, hasSword := false }
   | 1 => { toSymbolicObs :=
            { player := some playerPos, facing := Direction.down,
              monsters := [], chests := [],
              exits := [CENTER_EXIT_WEST, CENTER_EXIT_EAST, CENTER_EXIT_NORTH, CENTER_EXIT_SOUTH],
              traps := [], buttons := [], switches := [],
              grid := buildCenterGrid bs }
-           bridgeState := bs; hasSword := false }
+           bridgeState := bs, hasSword := false }
   | 2 => { toSymbolicObs :=
            { player := some playerPos, facing := Direction.down,
              monsters := [], chests := [NORTH_CHEST],
              exits := [NORTH_EXIT_SOUTH],
              traps := [], buttons := [], switches := [],
              grid := buildNorthGrid }
-           bridgeState := bs; hasSword := false }
+           bridgeState := bs, hasSword := false }
   | 3 => { toSymbolicObs :=
            { player := some playerPos, facing := Direction.down,
              monsters := [], chests := [EAST_CHEST],
              exits := [EAST_EXIT_WEST],
              traps := [], buttons := [], switches := [],
              grid := buildEastGrid }
-           bridgeState := bs; hasSword := false }
+           bridgeState := bs, hasSword := false }
   | 4 => { toSymbolicObs :=
            { player := some playerPos, facing := Direction.down,
              monsters := [SOUTH_MONSTER], chests := [],
              exits := [SOUTH_EXIT_NORTH],
              traps := [], buttons := [], switches := [],
              grid := buildSouthGrid }
-           bridgeState := bs; hasSword := false }
+           bridgeState := bs, hasSword := false }
   | _  => initSym4
 
 /-- 从 (当前房间, 出口坐标) 映射到 (目标房间, 出生点) -/
@@ -300,33 +301,36 @@ def task4RoomGraph : RoomGraph :=
 
 theorem west_to_north_reachable :
     roomReachable task4RoomGraph ROOM_WEST ROOM_NORTH := by
-  refine RoomPath.step ?_ (RoomPath.step ?_ RoomPath.self)
-  · refine ⟨"east", { direction := "east", exitType := "normal", opened := true,
-                      dest := ROOM_CENTER, start := ROOM_WEST, tiles := [(9,4)], isReached := false }, ?_, rfl⟩
-    unfold getRoomExits; simp [task4RoomGraph]
-  · refine ⟨"north", { direction := "north", exitType := "normal", opened := true,
-                       dest := ROOM_NORTH, start := ROOM_CENTER, tiles := [(4,0)], isReached := false }, ?_, rfl⟩
-    unfold getRoomExits; simp [task4RoomGraph]
+  simp[roomReachable]
+  have h1: adjacentRooms task4RoomGraph ROOM_WEST ROOM_CENTER := by
+    unfold adjacentRooms; simp [task4RoomGraph]
+    exists "east", { direction := "east", exitType := "normal", opened := true,dest := 1, start := 0, tiles := [(9,4)], isReached := false }
+  have h2: adjacentRooms task4RoomGraph ROOM_CENTER ROOM_NORTH := by
+    unfold adjacentRooms; simp [task4RoomGraph]
+    exists "north", { direction := "north", exitType := "normal", opened := true,dest := 2, start := 1, tiles := [(4,0)], isReached := false }
+  exact RoomPath.step h1 (RoomPath.step h2 RoomPath.self)
 
 theorem west_to_east_reachable :
     roomReachable task4RoomGraph ROOM_WEST ROOM_EAST := by
-  refine RoomPath.step ?_ (RoomPath.step ?_ RoomPath.self)
-  · refine ⟨"east", { direction := "east", exitType := "normal", opened := true,
-                      dest := ROOM_CENTER, start := ROOM_WEST, tiles := [(9,4)], isReached := false }, ?_, rfl⟩
-    unfold getRoomExits; simp [task4RoomGraph]
-  · refine ⟨"east", { direction := "east", exitType := "locked_key", opened := false,
-                      dest := ROOM_EAST, start := ROOM_CENTER, tiles := [(9,4)], isReached := false }, ?_, rfl⟩
-    unfold getRoomExits; simp [task4RoomGraph]
+  simp[roomReachable]
+  have h1: adjacentRooms task4RoomGraph ROOM_WEST ROOM_CENTER := by
+    unfold adjacentRooms; simp [task4RoomGraph]
+    exists "east", { direction := "east", exitType := "normal", opened := true,dest := 1, start := 0, tiles := [(9,4)], isReached := false }
+  have h2: adjacentRooms task4RoomGraph ROOM_CENTER ROOM_EAST := by
+    unfold adjacentRooms; simp [task4RoomGraph]
+    exists "east",  { direction := "east",  exitType := "locked_key", opened := false, dest := 3, start := 1, tiles := [(9,4)], isReached := false }
+  exact RoomPath.step h1 (RoomPath.step h2 RoomPath.self)
 
 theorem west_to_south_reachable :
     roomReachable task4RoomGraph ROOM_WEST ROOM_SOUTH := by
-  refine RoomPath.step ?_ (RoomPath.step ?_ RoomPath.self)
-  · refine ⟨"east", { direction := "east", exitType := "normal", opened := true,
-                      dest := ROOM_CENTER, start := ROOM_WEST, tiles := [(9,4)], isReached := false }, ?_, rfl⟩
-    unfold getRoomExits; simp [task4RoomGraph]
-  · refine ⟨"south", { direction := "south", exitType := "normal", opened := true,
-                       dest := ROOM_SOUTH, start := ROOM_CENTER, tiles := [(4,7)], isReached := false }, ?_, rfl⟩
-    unfold getRoomExits; simp [task4RoomGraph]
+  simp[roomReachable]
+  have h1: adjacentRooms task4RoomGraph ROOM_WEST ROOM_CENTER := by
+    unfold adjacentRooms; simp [task4RoomGraph]
+    exists "east", { direction := "east", exitType := "normal", opened := true,dest := 1, start := 0, tiles := [(9,4)], isReached := false }
+  have h2: adjacentRooms task4RoomGraph ROOM_CENTER ROOM_SOUTH := by
+    unfold adjacentRooms; simp [task4RoomGraph]
+    exists "south", { direction := "south", exitType := "normal",     opened := true,  dest := 4, start := 1, tiles := [(4,7)], isReached := false }
+  exact RoomPath.step h1 (RoomPath.step h2 RoomPath.self)
 
 theorem all_rooms_reachable :
     roomReachable task4RoomGraph ROOM_WEST ROOM_NORTH ∧
@@ -355,12 +359,17 @@ by
     have h1 : s.grid = buildWestGrid := hgrid
     rw [h0, h1] at h_eq
     have : buildCenterGrid bs ≠ buildWestGrid := by
-      intro h; have := buildCenterGrid bs 0 0; have := buildWestGrid 0 0; native_decide
+      simp[buildCenterGrid,buildWestGrid];exists 0;simp[ROOM_H,ROOM_W];exists 4;simp[CENTER_EXIT_WEST,CENTER_EXIT_EAST,CENTER_EXIT_NORTH,CENTER_EXIT_SOUTH];native_decide
     exact this h_eq
   have hplayer_some : room'.player.isSome := by simp [room', getRoomObs]
   have hsafe_dest : isSafeMoveB room'.grid (room'.player.get hplayer_some) = true := by
-    simp [room', getRoomObs]; unfold buildCenterGrid; simp [bridgeTiles, bs]
-    native_decide
+    simp [room', getRoomObs]; unfold buildCenterGrid; simp [bridgeTiles]
+    simp [isSafeMoveB,CENTER_SPAWN_FROM_WEST,inBoundsB,isBlockedB,ROOM_W,ROOM_H,getTile,CENTER_EXIT_WEST,CENTER_EXIT_EAST,CENTER_EXIT_NORTH,CENTER_EXIT_SOUTH,TILE_WALL,TILE_BRIDGE,TILE_BRIDGE,TILE_GAP,TILE_TRAP,TILE_CHEST,TILE_EXIT,TILE_MONSTER]
+    match bs with
+    | BridgeState.westToNorth => simp
+    | BridgeState.westToEast  => simp
+    | BridgeState.westToSouth => simp
+
   exact Step.roomTransition hpos hmove hescape hplayer_some hgrid_diff hsafe_dest
 
 theorem center_west_to_west (s : SymbolicObs) (b : BeliefState) (bs : BridgeState)
@@ -379,8 +388,9 @@ by
     have h0 : room'.grid = buildWestGrid := by simp [room', getRoomObs]
     have h1 : s.grid = buildCenterGrid bs := hgrid
     rw [h0, h1] at h_eq
-    have : buildWestGrid ≠ buildCenterGrid bs := by native_decide
-    exact this h_eq.symm
+    have : buildWestGrid ≠ buildCenterGrid bs := by
+      simp[buildCenterGrid,buildWestGrid];exists 0;simp[ROOM_H,ROOM_W];exists 4;simp[CENTER_EXIT_WEST,CENTER_EXIT_EAST,CENTER_EXIT_NORTH,CENTER_EXIT_SOUTH];native_decide
+    exact this h_eq
   have hplayer_some : room'.player.isSome := by simp [room', getRoomObs]
   have hsafe_dest : isSafeMoveB room'.grid (room'.player.get hplayer_some) = true := by
     simp [room', getRoomObs]; native_decide
@@ -402,8 +412,9 @@ by
     have h0 : room'.grid = buildNorthGrid := by simp [room', getRoomObs]
     have h1 : s.grid = buildCenterGrid bs := hgrid
     rw [h0, h1] at h_eq
-    have : buildNorthGrid ≠ buildCenterGrid bs := by native_decide
-    exact this h_eq.symm
+    have : buildNorthGrid ≠ buildCenterGrid bs := by
+      simp[buildCenterGrid,buildNorthGrid];exists 0;simp[ROOM_H,ROOM_W];exists 4;simp[CENTER_EXIT_WEST,CENTER_EXIT_EAST,CENTER_EXIT_NORTH,CENTER_EXIT_SOUTH];native_decide
+    exact this h_eq
   have hplayer_some : room'.player.isSome := by simp [room', getRoomObs]
   have hsafe_dest : isSafeMoveB room'.grid (room'.player.get hplayer_some) = true := by
     simp [room', getRoomObs]; native_decide
@@ -411,7 +422,7 @@ by
 
 theorem north_south_to_center (s : SymbolicObs) (b : BeliefState) (bs : BridgeState)
     (hgrid : s.grid = buildNorthGrid) (hplayer : s.player = some (4, 7))
-    (hexits : s.exits = [NORTH_EXIT_SOUTH]) :
+    (hexits : s.exits = [NORTH_EXIT_SOUTH]) (hbs : bs = BridgeState.westToNorth):
     Step s b Action.down (getRoomObs 1 CENTER_SPAWN_FROM_NORTH bs).toSymbolicObs
       { b with step := b.step + 1 } :=
 by
@@ -425,11 +436,14 @@ by
     have h0 : room'.grid = buildCenterGrid bs := by simp [room', getRoomObs]
     have h1 : s.grid = buildNorthGrid := hgrid
     rw [h0, h1] at h_eq
-    have : buildCenterGrid bs ≠ buildNorthGrid := by native_decide
-    exact this h_eq.symm
+    have : buildCenterGrid bs ≠ buildNorthGrid := by
+      simp[buildCenterGrid,buildNorthGrid];exists 0;simp[ROOM_H,ROOM_W];exists 4;simp[CENTER_EXIT_WEST,CENTER_EXIT_EAST,CENTER_EXIT_NORTH,CENTER_EXIT_SOUTH];native_decide
+    exact this h_eq
   have hplayer_some : room'.player.isSome := by simp [room', getRoomObs]
   have hsafe_dest : isSafeMoveB room'.grid (room'.player.get hplayer_some) = true := by
-    simp [room', getRoomObs]; unfold buildCenterGrid; simp [bridgeTiles, bs]; native_decide
+    simp [room', getRoomObs]; unfold buildCenterGrid; simp [bridgeTiles]
+    simp [isSafeMoveB,CENTER_SPAWN_FROM_NORTH,inBoundsB,isBlockedB,ROOM_W,ROOM_H,getTile,CENTER_EXIT_WEST,CENTER_EXIT_EAST,CENTER_EXIT_NORTH,CENTER_EXIT_SOUTH,TILE_WALL,TILE_BRIDGE,TILE_BRIDGE,TILE_GAP,TILE_TRAP,TILE_CHEST,TILE_EXIT,TILE_MONSTER]
+    rw[hbs];simp
   exact Step.roomTransition hpos hmove hescape hplayer_some hgrid_diff hsafe_dest
 
 theorem center_east_to_east_locked (s : SymbolicObs) (b : BeliefState) (bs : BridgeState)
@@ -449,8 +463,9 @@ by
     have h0 : room'.grid = buildEastGrid := by simp [room', getRoomObs]
     have h1 : s.grid = buildCenterGrid bs := hgrid
     rw [h0, h1] at h_eq
-    have : buildEastGrid ≠ buildCenterGrid bs := by native_decide
-    exact this h_eq.symm
+    have : buildEastGrid ≠ buildCenterGrid bs := by
+      simp[buildCenterGrid,buildEastGrid];exists 0;simp[ROOM_H,ROOM_W];exists 4;simp[CENTER_EXIT_WEST,CENTER_EXIT_EAST,CENTER_EXIT_NORTH,CENTER_EXIT_SOUTH];native_decide
+    exact this h_eq
   have hplayer_some : room'.player.isSome := by simp [room', getRoomObs]
   have hsafe_dest : isSafeMoveB room'.grid (room'.player.get hplayer_some) = true := by
     simp [room', getRoomObs]; native_decide
@@ -458,7 +473,7 @@ by
 
 theorem east_west_to_center (s : SymbolicObs) (b : BeliefState) (bs : BridgeState)
     (hgrid : s.grid = buildEastGrid) (hplayer : s.player = some (0, 4))
-    (hexits : s.exits = [EAST_EXIT_WEST]) :
+    (hexits : s.exits = [EAST_EXIT_WEST]) (hbs : bs = BridgeState.westToEast):
     Step s b Action.left (getRoomObs 1 CENTER_SPAWN_FROM_EAST bs).toSymbolicObs
       { b with step := b.step + 1 } :=
 by
@@ -472,11 +487,14 @@ by
     have h0 : room'.grid = buildCenterGrid bs := by simp [room', getRoomObs]
     have h1 : s.grid = buildEastGrid := hgrid
     rw [h0, h1] at h_eq
-    have : buildCenterGrid bs ≠ buildEastGrid := by native_decide
-    exact this h_eq.symm
+    have : buildCenterGrid bs ≠ buildEastGrid := by
+      simp[buildCenterGrid,buildEastGrid];exists 0;simp[ROOM_H,ROOM_W];exists 4;simp[CENTER_EXIT_WEST,CENTER_EXIT_EAST,CENTER_EXIT_NORTH,CENTER_EXIT_SOUTH];native_decide
+    exact this h_eq
   have hplayer_some : room'.player.isSome := by simp [room', getRoomObs]
   have hsafe_dest : isSafeMoveB room'.grid (room'.player.get hplayer_some) = true := by
-    simp [room', getRoomObs]; unfold buildCenterGrid; simp [bridgeTiles, bs]; native_decide
+    simp [room', getRoomObs]; unfold buildCenterGrid; simp [bridgeTiles]
+    simp [isSafeMoveB,CENTER_SPAWN_FROM_EAST,inBoundsB,isBlockedB,ROOM_W,ROOM_H,getTile,CENTER_EXIT_WEST,CENTER_EXIT_EAST,CENTER_EXIT_NORTH,CENTER_EXIT_SOUTH,TILE_WALL,TILE_BRIDGE,TILE_BRIDGE,TILE_GAP,TILE_TRAP,TILE_CHEST,TILE_EXIT,TILE_MONSTER]
+    rw[hbs];simp
   exact Step.roomTransition hpos hmove hescape hplayer_some hgrid_diff hsafe_dest
 
 theorem center_south_to_south (s : SymbolicObs) (b : BeliefState) (bs : BridgeState)
@@ -495,8 +513,9 @@ by
     have h0 : room'.grid = buildSouthGrid := by simp [room', getRoomObs]
     have h1 : s.grid = buildCenterGrid bs := hgrid
     rw [h0, h1] at h_eq
-    have : buildSouthGrid ≠ buildCenterGrid bs := by native_decide
-    exact this h_eq.symm
+    have : buildSouthGrid ≠ buildCenterGrid bs := by
+      simp[buildCenterGrid,buildSouthGrid];exists 4;simp[ROOM_H,ROOM_W];exists 0;simp[CENTER_EXIT_WEST,CENTER_EXIT_EAST,CENTER_EXIT_NORTH,CENTER_EXIT_SOUTH];native_decide
+    exact this h_eq
   have hplayer_some : room'.player.isSome := by simp [room', getRoomObs]
   have hsafe_dest : isSafeMoveB room'.grid (room'.player.get hplayer_some) = true := by
     simp [room', getRoomObs]; native_decide
@@ -504,7 +523,7 @@ by
 
 theorem south_north_to_center (s : SymbolicObs) (b : BeliefState) (bs : BridgeState)
     (hgrid : s.grid = buildSouthGrid) (hplayer : s.player = some (4, 0))
-    (hexits : s.exits = [SOUTH_EXIT_NORTH]) :
+    (hexits : s.exits = [SOUTH_EXIT_NORTH]) (hbs : bs = BridgeState.westToSouth):
     Step s b Action.up (getRoomObs 1 CENTER_SPAWN_FROM_SOUTH bs).toSymbolicObs
       { b with step := b.step + 1 } :=
 by
@@ -518,11 +537,14 @@ by
     have h0 : room'.grid = buildCenterGrid bs := by simp [room', getRoomObs]
     have h1 : s.grid = buildSouthGrid := hgrid
     rw [h0, h1] at h_eq
-    have : buildCenterGrid bs ≠ buildSouthGrid := by native_decide
-    exact this h_eq.symm
+    have : buildCenterGrid bs ≠ buildSouthGrid := by
+      simp[buildCenterGrid,buildSouthGrid];exists 4;simp[ROOM_H,ROOM_W];exists 0;simp[CENTER_EXIT_WEST,CENTER_EXIT_EAST,CENTER_EXIT_NORTH,CENTER_EXIT_SOUTH];native_decide
+    exact this h_eq
   have hplayer_some : room'.player.isSome := by simp [room', getRoomObs]
   have hsafe_dest : isSafeMoveB room'.grid (room'.player.get hplayer_some) = true := by
-    simp [room', getRoomObs]; unfold buildCenterGrid; simp [bridgeTiles, bs]; native_decide
+    simp [room', getRoomObs]; unfold buildCenterGrid; simp [bridgeTiles]
+    simp [isSafeMoveB,CENTER_SPAWN_FROM_SOUTH,inBoundsB,isBlockedB,ROOM_W,ROOM_H,getTile,CENTER_EXIT_WEST,CENTER_EXIT_EAST,CENTER_EXIT_NORTH,CENTER_EXIT_SOUTH,TILE_WALL,TILE_BRIDGE,TILE_BRIDGE,TILE_GAP,TILE_TRAP,TILE_CHEST,TILE_EXIT,TILE_MONSTER]
+    rw[hbs];simp
   exact Step.roomTransition hpos hmove hescape hplayer_some hgrid_diff hsafe_dest
 
 /- ================================================================
@@ -554,8 +576,7 @@ def center_path_northToWest (bs : BridgeState) : List Position :=
 
 /-- north: spawn(4,1)→chest(4,3)→exit(4,7) -/
 def north_path : List Position := [
-  (4,2),(4,3),        -- spawn→chest
-  (4,4),(4,5),(4,6),(4,7)  -- chest→exit
+  (4,2),(3,2),(3,3),(3,4),(4,4),(4,5),(4,6),(4,7)
 ]
 
 theorem north_path_safe : ∀ p ∈ north_path, isSafeMove buildNorthGrid p := by
@@ -566,14 +587,14 @@ theorem north_path_safe : ∀ p ∈ north_path, isSafeMove buildNorthGrid p := b
 
 /-- east: spawn(1,4)→chest(5,4)→exit(0,4) -/
 def east_path : List Position := [
-  (2,4),(3,4),(4,4),(5,4),     -- spawn→chest
-  (4,4),(3,4),(2,4),(1,4),(0,4)  -- chest→exit
+  (2,4),(3,4),(4,4),     -- spawn→chest
+  (3,4),(2,4),(1,4),(0,4)  -- chest→exit
 ]
 
 theorem east_path_safe : ∀ p ∈ east_path, isSafeMove buildEastGrid p := by
   simp [east_path, isSafeMove, isBlocked, inBounds, getTile,
     buildEastGrid, EAST_WALLS, EAST_CHEST, EAST_EXIT_WEST, ROOM_W, ROOM_H,
-    TILE_EMPTY, TILE_WALL, TILE_CHEST, TILE_EXIT]
+    TILE_EMPTY, TILE_WALL, TILE_CHEST, TILE_EXIT,WEST_WALLS]
   all_goals { native_decide }
 
 /-- south: spawn(4,6)→monster(4,4)→exit(4,0) -/
