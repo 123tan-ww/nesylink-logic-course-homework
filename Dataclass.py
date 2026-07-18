@@ -128,6 +128,8 @@ class BeliefState:
     facing: str = "down"
 
     has_key: bool = False
+    # 记录“曾经拿到过钥匙”，即使之后开门消耗掉也保留；用于区分先找钥匙/箱子和后续清怪策略。
+    ever_had_key: bool = False
     has_sword: bool = False
     keys: int = 0
     gold: int = 0
@@ -160,6 +162,8 @@ class BeliefState:
         self.last_player = None
         self.facing = "down"
         self.has_key = False
+        # 新一局开始时清空跨房间的钥匙历史。
+        self.ever_had_key = False
         self.has_sword = False
         self.keys = 0
         self.gold = 0
@@ -203,6 +207,9 @@ class BeliefState:
         self.tools = set(inv.get("tools", []))
         equipped = inv.get("equipped", {}) if isinstance(inv.get("equipped", {}), dict) else {}
         self.has_key = self.keys > 0
+        if self.keys > 0:
+            # safe_info 只给当前物品栏；这里把“见过钥匙”沉淀成记忆，避免钥匙被门消耗后丢失阶段信息。
+            self.ever_had_key = True
         self.has_sword = (
             "sword" in self.tools
             or "sword" in self.items

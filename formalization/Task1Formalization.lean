@@ -83,7 +83,7 @@ theorem pathPositions_safe : ∀ p ∈ pathPositions, isSafeMove buildTask1Grid 
 theorem step_right (s : SymbolicObs) (b : BeliefState) (x y : Nat)
     (hg : s.grid = buildTask1Grid) (hp : s.player = some (x, y))
     (hsafe : (x+1, y) ∈ pathPositions) :
-    Step s b Action.right { s with player := some (x+1, y) } b := by
+    Step s b Action.right { s with player := some (x+1, y), facing := Direction.right } { b with step := b.step + 1 } := by
   have hpos : s.player.isSome := by rw [hp]; simp
   have h_safe : isSafeMove s.grid (nextPosition (s.player.get hpos) Action.right) := by
     simpa [hg, hp, nextPosition] using pathPositions_safe (x+1, y) hsafe
@@ -92,7 +92,7 @@ theorem step_right (s : SymbolicObs) (b : BeliefState) (x y : Nat)
 theorem step_up (s : SymbolicObs) (b : BeliefState) (x y : Nat)
     (hg : s.grid = buildTask1Grid) (hp : s.player = some (x, y))
     (hsafe : (x, y-1) ∈ pathPositions) :
-    Step s b Action.up { s with player := some (x, y-1) } b := by
+    Step s b Action.up { s with player := some (x, y-1), facing := Direction.up } { b with step := b.step + 1 } := by
   have hpos : s.player.isSome := by rw [hp]; simp
   have h_safe : isSafeMove s.grid (nextPosition (s.player.get hpos) Action.up) := by
     simpa [hg, hp, nextPosition] using pathPositions_safe (x, y-1) hsafe
@@ -101,7 +101,7 @@ theorem step_up (s : SymbolicObs) (b : BeliefState) (x y : Nat)
 theorem step_left (s : SymbolicObs) (b : BeliefState) (x y : Nat)
     (hg : s.grid = buildTask1Grid) (hp : s.player = some (x, y))
     (hsafe : (x-1, y) ∈ pathPositions) :
-    Step s b Action.left { s with player := some (x-1, y) } b := by
+    Step s b Action.left { s with player := some (x-1, y), facing := Direction.left } { b with step := b.step + 1 } := by
   have hpos : s.player.isSome := by rw [hp]; simp
   have h_safe : isSafeMove s.grid (nextPosition (s.player.get hpos) Action.left) := by
     simpa [hg, hp, nextPosition] using pathPositions_safe (x-1, y) hsafe
@@ -112,31 +112,32 @@ theorem step_left (s : SymbolicObs) (b : BeliefState) (x y : Nat)
    ================================================================ -/
 
 -- Phase 1: 从起点 (4,6) 到宝箱旁 (1,3)
-def s_R1 : SymbolicObs := { initSym with player := some (5, 6) }
-def s_R2 : SymbolicObs := { initSym with player := some (6, 6) }
-def s_R3 : SymbolicObs := { initSym with player := some (7, 6) }
-def s_U1 : SymbolicObs := { initSym with player := some (7, 5) }
-def s_U2 : SymbolicObs := { initSym with player := some (7, 4) }
-def s_U3 : SymbolicObs := { initSym with player := some (7, 3) }
-def s_L1 : SymbolicObs := { initSym with player := some (6, 3) }
-def s_L2 : SymbolicObs := { initSym with player := some (5, 3) }
-def s_L3 : SymbolicObs := { initSym with player := some (4, 3) }
-def s_L4 : SymbolicObs := { initSym with player := some (3, 3) }
-def s_L5 : SymbolicObs := { initSym with player := some (2, 3) }
-def s_chest_adj : SymbolicObs := { initSym with player := some (1, 3) }
+def s_R1 : SymbolicObs := { initSym with player := some (5, 6), facing := Direction.right }
+def s_R2 : SymbolicObs := { initSym with player := some (6, 6), facing := Direction.right }
+def s_R3 : SymbolicObs := { initSym with player := some (7, 6), facing := Direction.right }
+def s_U1 : SymbolicObs := { initSym with player := some (7, 5), facing := Direction.up }
+def s_U2 : SymbolicObs := { initSym with player := some (7, 4), facing := Direction.up }
+def s_U3 : SymbolicObs := { initSym with player := some (7, 3), facing := Direction.up }
+def s_L1 : SymbolicObs := { initSym with player := some (6, 3), facing := Direction.left }
+def s_L2 : SymbolicObs := { initSym with player := some (5, 3), facing := Direction.left }
+def s_L3 : SymbolicObs := { initSym with player := some (4, 3), facing := Direction.left }
+def s_L4 : SymbolicObs := { initSym with player := some (3, 3), facing := Direction.left }
+def s_L5 : SymbolicObs := { initSym with player := some (2, 3), facing := Direction.left }
+def s_chest_adj : SymbolicObs := { initSym with player := some (1, 3), facing := Direction.left }
 
 -- Phase 2: 开箱后
 def s_postChest : SymbolicObs := { s_chest_adj with chests := [] }
-def belief_postChest : BeliefState :=
-  { initBelief with openedChests := [CHEST_POS], hasKey := true, keys := 1 }
+
+def belief_after_open (b : BeliefState) : BeliefState :=
+  { b with openedChests := CHEST_POS :: b.openedChests, hasKey := true, keys := b.keys + 1, step := b.step + 1 }
 
 -- Phase 3: 从宝箱到出口
-def s_R4 : SymbolicObs := { s_postChest with player := some (2, 3) }
-def s_R5 : SymbolicObs := { s_postChest with player := some (3, 3) }
-def s_U4 : SymbolicObs := { s_postChest with player := some (3, 2) }
-def s_U5 : SymbolicObs := { s_postChest with player := some (3, 1) }
-def s_U6 : SymbolicObs := { s_postChest with player := some (3, 0) }
-def s_exit : SymbolicObs := { s_postChest with player := some (4, 0) }
+def s_R4 : SymbolicObs := { s_postChest with player := some (2, 3), facing := Direction.right }
+def s_R5 : SymbolicObs := { s_postChest with player := some (3, 3), facing := Direction.right }
+def s_U4 : SymbolicObs := { s_postChest with player := some (3, 2), facing := Direction.up }
+def s_U5 : SymbolicObs := { s_postChest with player := some (3, 1), facing := Direction.up }
+def s_U6 : SymbolicObs := { s_postChest with player := some (3, 0), facing := Direction.up }
+def s_exit : SymbolicObs := { s_postChest with player := some (4, 0), facing := Direction.right }
 
 /- ================================================================
    7. 阶段 1：从起点走到宝箱旁
@@ -146,27 +147,42 @@ theorem phase1_to_chest : Exec initSym initBelief
     [Action.right, Action.right, Action.right,
      Action.up, Action.up, Action.up,
      Action.left, Action.left, Action.left, Action.left, Action.left, Action.left]
-    s_chest_adj initBelief := by
-  apply Exec.cons (step_right initSym initBelief 4 6 rfl rfl (by decide))
-  apply Exec.cons (step_right s_R1 initBelief 5 6 rfl rfl (by decide))
-  apply Exec.cons (step_right s_R2 initBelief 6 6 rfl rfl (by decide))
-  apply Exec.cons (step_up s_R3 initBelief 7 6 rfl rfl (by decide))
-  apply Exec.cons (step_up s_U1 initBelief 7 5 rfl rfl (by decide))
-  apply Exec.cons (step_up s_U2 initBelief 7 4 rfl rfl (by decide))
-  apply Exec.cons (step_left s_U3 initBelief 7 3 rfl rfl (by decide))
-  apply Exec.cons (step_left s_L1 initBelief 6 3 rfl rfl (by decide))
-  apply Exec.cons (step_left s_L2 initBelief 5 3 rfl rfl (by decide))
-  apply Exec.cons (step_left s_L3 initBelief 4 3 rfl rfl (by decide))
-  apply Exec.cons (step_left s_L4 initBelief 3 3 rfl rfl (by decide))
-  apply Exec.cons (step_left s_L5 initBelief 2 3 rfl rfl (by decide))
+    s_chest_adj { initBelief with step := 12 } := by
+  -- define intermediate beliefs after each step
+  let b0 := initBelief
+  let b1 := { b0 with step := b0.step + 1 }
+  let b2 := { b1 with step := b1.step + 1 }
+  let b3 := { b2 with step := b2.step + 1 }
+  let b4 := { b3 with step := b3.step + 1 }
+  let b5 := { b4 with step := b4.step + 1 }
+  let b6 := { b5 with step := b5.step + 1 }
+  let b7 := { b6 with step := b6.step + 1 }
+  let b8 := { b7 with step := b7.step + 1 }
+  let b9 := { b8 with step := b8.step + 1 }
+  let b10 := { b9 with step := b9.step + 1 }
+  let b11 := { b10 with step := b10.step + 1 }
+  let b12 := { b11 with step := b11.step + 1 }
+  -- chain the steps with corresponding beliefs
+  apply Exec.cons (step_right initSym b0 4 6 rfl rfl (by decide))
+  apply Exec.cons (step_right s_R1 b1 5 6 rfl rfl (by decide))
+  apply Exec.cons (step_right s_R2 b2 6 6 rfl rfl (by decide))
+  apply Exec.cons (step_up s_R3 b3 7 6 rfl rfl (by decide))
+  apply Exec.cons (step_up s_U1 b4 7 5 rfl rfl (by decide))
+  apply Exec.cons (step_up s_U2 b5 7 4 rfl rfl (by decide))
+  apply Exec.cons (step_left s_U3 b6 7 3 rfl rfl (by decide))
+  apply Exec.cons (step_left s_L1 b7 6 3 rfl rfl (by decide))
+  apply Exec.cons (step_left s_L2 b8 5 3 rfl rfl (by decide))
+  apply Exec.cons (step_left s_L3 b9 4 3 rfl rfl (by decide))
+  apply Exec.cons (step_left s_L4 b10 3 3 rfl rfl (by decide))
+  apply Exec.cons (step_left s_L5 b11 2 3 rfl rfl (by decide))
   exact Exec.nil
 
 /- ================================================================
    8. 阶段 2：打开宝箱获取钥匙
    ================================================================ -/
 
-theorem phase2_open_chest : Step s_chest_adj initBelief Action.buttonA
-    s_postChest belief_postChest := by
+theorem phase2_open_chest (b : BeliefState) : Step s_chest_adj b Action.buttonA
+    s_postChest (belief_after_open b) := by
   have hpos : s_chest_adj.player.isSome := by unfold s_chest_adj initSym; simp
   refine Step.openChest (c := CHEST_POS) hpos ?_ ?_
   · unfold s_chest_adj initSym; simp
@@ -176,42 +192,31 @@ theorem phase2_open_chest : Step s_chest_adj initBelief Action.buttonA
    9. 阶段 3：从宝箱走到北侧出口
    ================================================================ -/
 
-theorem phase3_to_exit : Exec s_postChest belief_postChest
+theorem phase3_to_exit (b : BeliefState) : Exec s_postChest b
     [Action.right, Action.right, Action.up, Action.up, Action.up, Action.right]
-    s_exit belief_postChest := by
-  -- 与 phase1_to_chest 风格一致，直接链式 apply Exec.cons + step_* 引理
+    s_exit { b with step := b.step + 6 } := by
+  -- define intermediate beliefs
+  let b0 := b
+  let b1 := { b0 with step := b0.step + 1 }
+  let b2 := { b1 with step := b1.step + 1 }
+  let b3 := { b2 with step := b2.step + 1 }
+  let b4 := { b3 with step := b3.step + 1 }
+  let b5 := { b4 with step := b4.step + 1 }
+  let b6 := { b5 with step := b5.step + 1 }
   apply Exec.cons
   · -- Step 1: right from (1,3) to (2,3)
-    exact step_right s_postChest belief_postChest 1 3
-      (by unfold s_postChest s_chest_adj initSym; rfl)
-      (by unfold s_postChest s_chest_adj initSym; simp)
-      (by decide)
+    exact step_right s_postChest b0 1 3 (by unfold s_postChest s_chest_adj initSym; rfl) (by unfold s_postChest s_chest_adj initSym; simp) (by decide)
   · -- rest: [right, up, up, up, right]
     apply Exec.cons
-    · exact step_right s_R4 belief_postChest 2 3
-        (by simp [s_R4, s_postChest, s_chest_adj, initSym])
-        (by simp [s_R4])
-        (by decide)
+    · exact step_right s_R4 b1 2 3 (by simp [s_R4, s_postChest, s_chest_adj, initSym]) (by simp [s_R4]) (by decide)
     · apply Exec.cons
-      · exact step_up s_R5 belief_postChest 3 3
-          (by simp [s_R5, s_postChest, s_chest_adj, initSym])
-          (by simp [s_R5])
-          (by decide)
+      · exact step_up s_R5 b2 3 3 (by simp [s_R5, s_postChest, s_chest_adj, initSym]) (by simp [s_R5]) (by decide)
       · apply Exec.cons
-        · exact step_up s_U4 belief_postChest 3 2
-            (by simp [s_U4, s_postChest, s_chest_adj, initSym])
-            (by simp [s_U4])
-            (by decide)
+        · exact step_up s_U4 b3 3 2 (by simp [s_U4, s_postChest, s_chest_adj, initSym]) (by simp [s_U4]) (by decide)
         · apply Exec.cons
-          · exact step_up s_U5 belief_postChest 3 1
-              (by simp [s_U5, s_postChest, s_chest_adj, initSym])
-              (by simp [s_U5])
-              (by decide)
+          · exact step_up s_U5 b4 3 1 (by simp [s_U5, s_postChest, s_chest_adj, initSym]) (by simp [s_U5]) (by decide)
           · apply Exec.cons
-            · exact step_right s_U6 belief_postChest 3 0
-                (by simp [s_U6, s_postChest, s_chest_adj, initSym])
-                (by simp [s_U6])
-                (by decide)
+            · exact step_right s_U6 b5 3 0 (by simp [s_U6, s_postChest, s_chest_adj, initSym]) (by simp [s_U6]) (by decide)
             · exact Exec.nil
 
 /- ================================================================
@@ -229,23 +234,24 @@ theorem task1_completable : TaskCompletable initSym initBelief task1Goal := by
     [Action.right, Action.right, Action.right,
      Action.up, Action.up, Action.up,
      Action.left, Action.left, Action.left, Action.left, Action.left, Action.left]
-  have h_phase1 : Exec initSym initBelief plan1 s_chest_adj initBelief := phase1_to_chest
+  have h_phase1 : Exec initSym initBelief plan1 s_chest_adj { initBelief with step := 12 } := phase1_to_chest
 
   -- 规划 2：开箱（追加一个 buttonA）
   let plan2 : List Action := plan1 ++ [Action.buttonA]
-  have h_phase2 : Exec initSym initBelief plan2 s_postChest belief_postChest := by
+  let b12 := { initBelief with step := 12 }
+  have h_phase2 : Exec initSym initBelief plan2 s_postChest (belief_after_open b12) := by
     apply exec_append h_phase1
-    apply Exec.cons phase2_open_chest; exact Exec.nil
+    apply Exec.cons (phase2_open_chest b12); exact Exec.nil
 
   -- 规划 3：走到出口（玩家到达 (4,0) 时已在 EXIT_POSITIONS 中）
   let plan3 : List Action :=
     [Action.right, Action.right, Action.up, Action.up, Action.up, Action.right]
-  have h_all : Exec initSym initBelief (plan2 ++ plan3) s_exit belief_postChest := by
-    apply exec_append h_phase2 phase3_to_exit
+  have h_all : Exec initSym initBelief (plan2 ++ plan3) s_exit ({ (belief_after_open b12) with step := (belief_after_open b12).step + 6 }) := by
+    apply exec_append h_phase2 (phase3_to_exit (belief_after_open b12))
 
   -- 验证最终状态满足任务目标
-  refine ⟨plan2 ++ plan3, s_exit, belief_postChest, h_all, ?_⟩
+  refine ⟨plan2 ++ plan3, s_exit, { (belief_after_open b12) with step := (belief_after_open b12).step + 6 }, h_all, ?_⟩
   unfold taskCompleted task1Goal
-  simp [belief_postChest, s_exit, s_postChest, s_chest_adj, initSym, EXIT_POSITIONS]
+  simp [belief_after_open, s_exit, s_postChest, s_chest_adj, initSym, EXIT_POSITIONS]
 
 end Task1

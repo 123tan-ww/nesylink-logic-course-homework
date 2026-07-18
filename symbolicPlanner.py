@@ -74,9 +74,9 @@ def tile_risk_cost(pos: Pos, sym: SymbolicObs) -> float:
         if d == 0:
             cost += 100.0
         elif d == 1:
-            cost += 10.0
+            cost += 4.0
         elif d == 2:
-            cost += 3.0
+            cost += 1.0
     for tx, ty in sym.traps:
         d = abs(tx - x) + abs(ty - y)
         if d == 0:
@@ -91,8 +91,10 @@ def astar_path(
     start: Pos,
     goal: Pos,
     sym: Optional[SymbolicObs] = None,
+    avoid_exits: bool = False,
 ) -> List[int]:
     # 在符号网格上规划 tile 路径，返回方向动作列表；像素级展开由 OptionController 完成。
+    # avoid_exits 用在非出口目标上，避免去箱子/机关/怪物途中踩到出口导致意外换房。
     if start == goal:
         return []
 
@@ -121,6 +123,9 @@ def astar_path(
             tile = int(grid[y, x])
             if not is_passable(tile):
                 continue
+            if avoid_exits and tile == EXIT and nxt != goal:
+                # 只有当前目标本身就是出口时，才允许路径进入出口 tile。
+                continue
             step_cost = 1.0 + (tile_risk_cost(nxt, sym) if sym is not None else 0.0)
             new_g = cur_g + step_cost
             if new_g < g_score.get(nxt, float("inf")):
@@ -144,6 +149,7 @@ class SymbolicPlanner:
             return Subgoal("wait")
 
         candidates: List[Candidate] = []
+        has_conditional_exit = any(info.exit_type == "conditional" for info in sym.exit_infos)
 
         for monster in sym.monsters:
             candidates.append(
@@ -162,7 +168,9 @@ class SymbolicPlanner:
         for button in sym.buttons:
             if button in belief.pressed_buttons:
                 continue
-            candidates.append(self.make_candidate(sym, belief, "press_button", button, 80.0))
+            # 条件门房间里按钮往往是开门链路的一环；没有箱子可做时优先按按钮推进拓扑变化。
+            button_value = 165.0 if has_conditional_exit and not sym.chests else 80.0
+            candidates.append(self.make_candidate(sym, belief, "press_button", button, button_value))
 
         for switch in sym.switches:
             if switch in belief.activated_switches:
@@ -195,11 +203,24 @@ class SymbolicPlanner:
         room = belief.rooms.get(room_signature(sym))
         opened_chest_here = bool(room is not None and room.opened_chests)
 
-        if any(info.exit_type == "conditional" for info in sym.exit_infos):
+        has_conditional_exit = any(info.exit_type == "conditional" for info in sym.exit_infos)
+        has_button_gate = bool(sym.buttons or belief.pressed_buttons)
+        if has_conditional_exit and has_button_gate and sym.chests:
+            # 条件门+按钮+箱子同时出现时，靠近箱子的怪更可能阻塞关键交互，远处怪不急着清。
+            distance_to_chest = min(manhattan(monster, chest) for chest in sym.chests)
+            if distance_to_chest <= 2:
+                return 155.0
+            return 90.0
+
+        if has_conditional_exit:
             # 条件门常要求清怪/按机关；在这类房间里怪物通常是进度瓶颈。
             return 165.0
 
         if sym.chests:
+            distance_to_chest = min(manhattan(monster, chest) for chest in sym.chests)
+            if not belief.ever_had_key and not has_conditional_exit:
+                # 还没拿到过钥匙时，非贴身怪先让位给找箱子/钥匙，减少 task5 多房间图里的绕路打怪。
+                return 170.0 if distance_to_player <= 1 else 35.0
             # 有可见箱子时，只优先处理贴近玩家或守在箱子附近的怪。
             distance_to_chest = min(manhattan(monster, chest) for chest in sym.chests)
             if distance_to_player <= 1:
@@ -249,12 +270,12 @@ class SymbolicPlanner:
                 x, y = p
                 if not is_passable(int(sym.grid[y, x])):
                     continue
-                path = astar_path(sym.grid, sym.player, p, sym)
+                path = astar_path(sym.grid, sym.player, p, sym, avoid_exits=True)
                 if path or sym.player == p:
                     best = min(best, float(len(path)))
             return best
 
-        path = astar_path(sym.grid, sym.player, target, sym)
+        path = astar_path(sym.grid, sym.player, target, sym, avoid_exits=kind != "go_exit")
         if not path and sym.player != target:
             return 999.0
         return float(len(path))
